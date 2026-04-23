@@ -15,7 +15,6 @@ There is a processing pipeline for those steps:
 ## Current Entry Points
 
 - `run_categorized_corpus.py` - main pipeline CLI (`init`, `generate`, `embed_excerpts`, `embed_responses`, `cka`, or `all`).
-- `pipeline_embed_explain_cka.py` - alias entry point to `run_categorized_corpus.py`.
 - `scripts/run_wiki_tree_cka_pipeline.py` - convenience wrapper that builds a corpus from wiki-tree output and runs the full pipeline.
 - `wiki_fetch.py` - category-based Wikipedia fetcher for corpus construction.
 - `wiki_tree_random_articles.py` - weighted random wiki-tree sampler using `wiki_category_library.json`.
