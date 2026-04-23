@@ -25,6 +25,9 @@ build/
 # Local corpora and run outputs (generated)
 data/
 
+# NumPy arrays (embeddings, pipeline outputs)
+*.npy
+
 # OS / editor
 .DS_Store
 Thumbs.db

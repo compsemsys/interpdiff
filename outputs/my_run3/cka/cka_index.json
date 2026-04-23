@@ -1,0 +1,24 @@
+[
+  {
+    "segment": "excerpt",
+    "aggregation": "document",
+    "model_a": "gemma-3-1b-it",
+    "model_b": "Qwen3.5-0.8B",
+    "linear_cka": 0.8258848837269679,
+    "path_a": "F:\\code\\Independent Study\\outputs\\my_run3\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+    "path_b": "F:\\code\\Independent Study\\outputs\\my_run3\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+    "n_rows": 200,
+    "n_rows_total": 200
+  },
+  {
+    "segment": "response",
+    "aggregation": "document",
+    "model_a": "gemma-3-1b-it",
+    "model_b": "Qwen3.5-0.8B",
+    "linear_cka": 0.624347728334888,
+    "path_a": "F:\\code\\Independent Study\\outputs\\my_run3\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+    "path_b": "F:\\code\\Independent Study\\outputs\\my_run3\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+    "n_rows": 200,
+    "n_rows_total": 200
+  }
+]

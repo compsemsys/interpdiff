@@ -366,7 +366,18 @@ def _document_category_matrix(
                 paths_by_key[(slug, "response")] = rp
 
     if len(paths_by_key) < 2:
-        return {"results": [], "focused": {}}
+        return {
+            "results": [],
+            "aggregated": [],
+            "aggregated_focused": {
+                "cross_model_same_segment": [],
+                "within_model_excerpt_vs_response": [],
+            },
+            "focused": {
+                "cross_model_same_segment": [],
+                "within_model_excerpt_vs_response": [],
+            },
+        }
 
     loaded: dict[tuple[str, str], tuple[np.ndarray, list[dict[str, Any]], dict[str, list[int]]]] = {}
     categories: set[str] = set()
@@ -378,8 +389,55 @@ def _document_category_matrix(
 
     keys = sorted(loaded.keys(), key=lambda x: (x[0], x[1]))
     records: list[dict[str, Any]] = []
+    aggregated: list[dict[str, Any]] = []
     cka_dir = os.path.join(out_dir, "cka")
     os.makedirs(cka_dir, exist_ok=True)
+
+    pool_label = "(all documents)"
+
+    for (ma, sa), (mb, sb) in itertools.combinations(keys, 2):
+        ea, meta_a, _cidx_a = loaded[(ma, sa)]
+        eb, meta_b, _cidx_b = loaded[(mb, sb)]
+        xa, xb, shared_doc_ids = _align_doc_embeddings_by_doc_id(
+            ea,
+            meta_a,
+            eb,
+            meta_b,
+            doc_ids_allow=doc_ids_allow,
+        )
+        n = int(xa.shape[0])
+        rec: dict[str, Any] = {
+            "analysis": "document_pooled",
+            "aggregation": "document",
+            "segment": f"{sa}__vs__{sb}",
+            "segment_a": sa,
+            "segment_b": sb,
+            "category": pool_label,
+            "pooled": True,
+            "model_a": ma,
+            "model_b": mb,
+            "path_a": paths_by_key[(ma, sa)],
+            "path_b": paths_by_key[(mb, sb)],
+            "n_rows": n,
+            "n_rows_total_a": int(ea.shape[0]),
+            "n_rows_total_b": int(eb.shape[0]),
+            "pairing": "doc_id_aligned",
+            "doc_ids": shared_doc_ids,
+            "row_slice": {
+                "pooled": True,
+                "doc_ids": sorted(doc_ids_allow) if doc_ids_allow else None,
+            },
+        }
+        if n < 2:
+            rec["linear_cka"] = float("nan")
+            rec["error"] = "fewer than 2 aligned docs"
+        else:
+            rec["linear_cka"] = float(linear_cka_chunked(xa, xb, chunk_rows))
+        aggregated.append(rec)
+
+        file_name = f"pooled__{_safe_slug(ma)}_{sa}__vs__{_safe_slug(mb)}_{sb}.json"
+        with open(os.path.join(cka_dir, file_name), "w", encoding="utf-8") as f:
+            json.dump(rec, f, indent=2)
 
     for cat in sorted(categories):
         cat_keys = [k for k in keys if cat in loaded[k][2]]
@@ -432,10 +490,9 @@ def _document_category_matrix(
             with open(os.path.join(cka_dir, file_name), "w", encoding="utf-8") as f:
                 json.dump(rec, f, indent=2)
 
-    focused = {
+    focused: dict[str, list[dict[str, Any]]] = {
         "cross_model_same_segment": [],
         "within_model_excerpt_vs_response": [],
-        "cross_model_cross_segment": [],
     }
     for r in records:
         same_model = r["model_a"] == r["model_b"]
@@ -444,10 +501,25 @@ def _document_category_matrix(
             focused["cross_model_same_segment"].append(r)
         elif same_model and not same_segment:
             focused["within_model_excerpt_vs_response"].append(r)
-        elif not same_model and not same_segment:
-            focused["cross_model_cross_segment"].append(r)
 
-    return {"results": records, "focused": focused}
+    aggregated_focused: dict[str, list[dict[str, Any]]] = {
+        "cross_model_same_segment": [],
+        "within_model_excerpt_vs_response": [],
+    }
+    for r in aggregated:
+        same_model = r["model_a"] == r["model_b"]
+        same_segment = r["segment_a"] == r["segment_b"]
+        if not same_model and same_segment:
+            aggregated_focused["cross_model_same_segment"].append(r)
+        elif same_model and not same_segment:
+            aggregated_focused["within_model_excerpt_vs_response"].append(r)
+
+    return {
+        "results": records,
+        "aggregated": aggregated,
+        "aggregated_focused": aggregated_focused,
+        "focused": focused,
+    }
 
 
 def run_stage_init(
@@ -899,23 +971,34 @@ def run_stage_cka(
                 "skip_generate": bool(skip_generate),
                 "chunk_rows": int(cka_chunk_rows),
                 "results": by_cat.get("results", []),
+                "aggregated": by_cat.get("aggregated", []),
+                "aggregated_focused": by_cat.get("aggregated_focused", {}),
                 "focused": by_cat.get("focused", {}),
             }
             with open(by_cat_index, "w", encoding="utf-8") as f:
                 json.dump(by_cat_obj, f, indent=2)
             run_info["cka_document_by_category"] = by_cat_obj
             print(
-                "[cka] document-by-category comparisons:",
+                "[cka] document-by-category (per-category) comparisons:",
                 len(by_cat_obj["results"]),
+            )
+            print(
+                "[cka] document Pooled (all doc_id aligned rows) comparisons:",
+                len(by_cat_obj.get("aggregated", [])),
             )
             f = by_cat_obj.get("focused", {})
             print(
-                "      cross_model_same_segment=",
+                "      (per-cat) cross_model_same_segment=",
                 len(f.get("cross_model_same_segment", [])),
                 "within_model_excerpt_vs_response=",
                 len(f.get("within_model_excerpt_vs_response", [])),
-                "cross_model_cross_segment=",
-                len(f.get("cross_model_cross_segment", [])),
+            )
+            agf = by_cat_obj.get("aggregated_focused", {}) or {}
+            print(
+                "      (pooled) cross_model_same_segment=",
+                len(agf.get("cross_model_same_segment", [])),
+                "within_model_excerpt_vs_response=",
+                len(agf.get("within_model_excerpt_vs_response", [])),
             )
         run_info.setdefault("artifacts", {})["cka_document_by_category"] = by_cat_index
 

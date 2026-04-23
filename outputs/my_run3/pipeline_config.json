@@ -2,8 +2,8 @@
   "corpus": "F:\\code\\Independent Study\\data\\wiki_tree_corpus_for_cka.jsonl",
   "words": 200,
   "models": [
-    "F:\\path\\to\\gemma-3-1b-it",
-    "F:\\path\\to\\Qwen3.5-0.8B"
+    "F:\\quantas\\models\\google\\gemma-3-1b-it",
+    "F:\\quantas\\models\\Qwen\\Qwen3.5-0.8B"
   ],
   "instruction": "Explain the following: {title}",
   "instruction_placeholders": [

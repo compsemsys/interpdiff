@@ -1,6 +1,10 @@
 # Independent Study
 
-This repository is now centered on a staged local pipeline for:
+This project gets wiki abstracts, runs them through LLMs to get token embeddings, mean-pools into document embeddings, then analyzes using CKA.
+
+See the latest findings [outputs\my_run3\cka\document_cka_by_category.md](outputs\my_run3\cka\document_cka_by_category.md)
+
+There is a processing pipeline for those steps:
 
 1. Building excerpt corpora from categorized JSONL documents.
 2. Generating model responses from excerpt/title prompts.
@@ -69,40 +73,3 @@ $RC = ".\run_categorized_corpus.py"
   --chunk_size 768 `
   --stage all
 ```
-
-## `my_run` Findings (Document CKA by Category)
-
-Source report: `outputs/my_run/cka/document_cka_by_category.md`
-
-Run context:
-
-- Models: `Qwen3.5-0.8B`, `gemma-3-1b-it`
-- Segments: `excerpt`, `response`
-- Categories: `Category:Culture`, `Category:Science`
-- Comparisons: 12 total (10 aligned docs per comparison)
-
-### Cross-model, same-segment CKA
-
-- Culture: excerpt `0.920879`, response `0.866737`
-- Science: excerpt `0.928342`, response `0.875575`
-
-Observed pattern: cross-model agreement is high for excerpts and slightly lower for responses.
-
-### Within-model, excerpt-vs-response CKA
-
-- Qwen: Culture `0.950087`, Science `0.824079`
-- Gemma: Culture `0.752757`, Science `0.759597`
-
-Observed pattern: Qwen preserves stronger excerpt/response alignment than Gemma in this run.
-
-### Cross-model, cross-segment CKA
-
-- Culture: Qwen excerpt vs Gemma response `0.825404`; Qwen response vs Gemma excerpt `0.852045`
-- Science: Qwen excerpt vs Gemma response `0.875776`; Qwen response vs Gemma excerpt `0.668196`
-
-Observed pattern: category and segment pairing matter; the weakest pair in this report is Science with Qwen response vs Gemma excerpt (`0.668196`).
-
-## Notes
-
-- CKA values here are from a small sample (10 aligned docs per category comparison), so treat them as directional rather than final.
-- For larger conclusions, rerun with more categories/docs and compare stability across seeds/checkpoints.
