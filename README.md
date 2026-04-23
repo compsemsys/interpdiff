@@ -1,125 +1,108 @@
-# Independent Study — Embedding experiments
+# Independent Study
 
-Small workspace for experimenting with contextual token embeddings using Hugging Face Transformers and a local embedding model.
+This repository is now centered on a staged local pipeline for:
 
-## Overview
+1. Building excerpt corpora from categorized JSONL documents.
+2. Generating model responses from excerpt/title prompts.
+3. Embedding excerpts and responses.
+4. Aggregating embeddings at word and/or document level.
+5. Running linear CKA comparisons, including document CKA by category.
 
-This project demonstrates how to obtain contextual token embeddings (per-token/subword vectors) from a Transformer model and how to pool them into sentence or per-word embeddings.
+## Current Entry Points
 
-Files:
-- `mainlad.py`: minimal example that loads a model and prints `last_hidden_state` (contextual token embeddings).
-- `llama33.py`, `cache_model.py`, `requirements.txt`: supporting files and dependencies.
+- `run_categorized_corpus.py` - main pipeline CLI (`init`, `generate`, `embed_excerpts`, `embed_responses`, `cka`, or `all`).
+- `pipeline_embed_explain_cka.py` - alias entry point to `run_categorized_corpus.py`.
+- `scripts/run_wiki_tree_cka_pipeline.py` - convenience wrapper that builds a corpus from wiki-tree output and runs the full pipeline.
+- `wiki_fetch.py` - category-based Wikipedia fetcher for corpus construction.
+- `wiki_tree_random_articles.py` - weighted random wiki-tree sampler using `wiki_category_library.json`.
+- `wiki_category_library.py` - refreshes and maintains local category metadata used by sampling.
 
-## Requirements
+## Environment Setup (Windows / PowerShell)
 
-- Python 3.8+
-- PyTorch
-- transformers
-
-Virtual environments are recommended to keep dependencies isolated.
-
-Create and activate a `venv` (Windows PowerShell):
+This project uses `.\.venv313`:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+py -3.13 -m venv .venv313
+.\.venv313\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-Create and activate a `venv` (Windows cmd):
+Run scripts with:
 
-```cmd
-python -m venv .venv
-.\.venv\Scripts\activate.bat
-pip install -r requirements.txt
+```powershell
+.\.venv313\Scripts\python.exe .\run_categorized_corpus.py --help
 ```
 
-Create and activate a `venv` (macOS / Linux):
+## Pipeline Overview
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+The pipeline expects a JSONL corpus with at least:
+
+- `doc_id` (int)
+- `category` (str)
+- `title` (str)
+- `text` (str)
+
+Main stages:
+
+- `init` - writes excerpt corpus + pipeline config/state.
+- `generate` - generates responses for each model.
+- `embed_excerpts` - token embeddings + word/document aggregation for excerpts.
+- `embed_responses` - same for generated responses.
+- `cka` - pairwise CKA outputs and document-by-category matrix (when document aggregation exists).
+
+See `PIPELINE_GUIDE.md` for full CLI details, resume/overwrite behavior, and artifact layout.
+
+## Quick Start
+
+```powershell
+$PY = ".\.venv313\Scripts\python.exe"
+$RC = ".\run_categorized_corpus.py"
+
+& $PY $RC `
+  --corpus ".\data\wiki_tree_corpus_for_cka.jsonl" `
+  --out_dir ".\outputs\my_run2" `
+  --models "F:\path\to\gemma-3-1b-it" "F:\path\to\Qwen3.5-0.8B" `
+  --aggregation_level "document" `
+  --words 200 `
+  --max_new_tokens 128 `
+  --batch_size 4 `
+  --chunk_size 768 `
+  --stage all
 ```
 
-If you prefer manual install without a virtualenv:
+## `my_run` Findings (Document CKA by Category)
 
-```bash
-pip install torch transformers
-```
+Source report: `outputs/my_run/cka/document_cka_by_category.md`
 
-## Configuration
+Run context:
 
-Set `model_path` inside `mainlad.py` to the path of a local or remote HF model that provides hidden states. Example in the repository uses:
+- Models: `Qwen3.5-0.8B`, `gemma-3-1b-it`
+- Segments: `excerpt`, `response`
+- Categories: `Category:Culture`, `Category:Science`
+- Comparisons: 12 total (10 aligned docs per comparison)
 
-```py
-model_path = "F:/quantas/models/Qwen/Qwen3-Embedding-0.6B"
-```
+### Cross-model, same-segment CKA
 
-Adjust for your environment (local path or Hugging Face model identifier).
+- Culture: excerpt `0.920879`, response `0.866737`
+- Science: excerpt `0.928342`, response `0.875575`
 
+Observed pattern: cross-model agreement is high for excerpts and slightly lower for responses.
 
-## Output schema
+### Within-model, excerpt-vs-response CKA
 
-The output of `mainlad.py` is a `.npy` file containing a dictionary with two keys:
+- Qwen: Culture `0.950087`, Science `0.824079`
+- Gemma: Culture `0.752757`, Science `0.759597`
 
-- `embeddings`: a numpy array of shape `(num_tokens, hidden_size)` containing all token embeddings.
-- `token_meta`: a list of lists, where each inner list contains dictionaries for each token in a chunk. Each dictionary has:
-	- `token_id`: integer token id
-	- `token_str`: string representation of the token
-	- `word`: original word or text span
-	- `span`: (start, end) character offsets in the original text
-	- `word_idx`: index of the token in the document
+Observed pattern: Qwen preserves stronger excerpt/response alignment than Gemma in this run.
 
-Example usage:
+### Cross-model, cross-segment CKA
 
-```python
-import numpy as np
-data = np.load('embeddings.npy', allow_pickle=True).item()
-embeddings = data['embeddings']
-token_meta = data['token_meta']
-print(token_meta[0][0])  # Metadata for first token in first chunk
-```
+- Culture: Qwen excerpt vs Gemma response `0.825404`; Qwen response vs Gemma excerpt `0.852045`
+- Science: Qwen excerpt vs Gemma response `0.875776`; Qwen response vs Gemma excerpt `0.668196`
 
-## What the code returns
+Observed pattern: category and segment pairing matter; the weakest pair in this report is Science with Qwen response vs Gemma excerpt (`0.668196`).
 
-In `mainlad.py`, the script loads the model and returns contextual token embeddings and token metadata. See Output schema above.
+## Notes
 
-To obtain a sentence vector, pool across tokens (mean, sum, or a model-provided pooled output when available).
-
-Example mean-pooling (handles attention mask):
-
-```py
-import torch
-# word_embeddings: outputs.last_hidden_state (batch, seq_len, hidden_size)
-# mask: inputs['attention_mask'] (batch, seq_len)
-mask = inputs['attention_mask'].unsqueeze(-1)
-masked_embeddings = word_embeddings * mask
-sentence_embeddings = masked_embeddings.sum(dim=1) / mask.sum(dim=1)
-```
-
-To inspect tokens and see subword pieces:
-
-```py
-tokens = tokenizer.convert_ids_to_tokens(inputs['input_ids'][0])
-print(tokens)
-```
-
-To get per-word embeddings (merge subword tokens), group contiguous subword pieces belonging to the same word and average their token vectors.
-
-## Usage
-
-Run the example script:
-
-```bash
-python mainlad.py
-```
-
-Expected output includes the `inputs` dict, the `word_embeddings` tensor and its shape (e.g., `(1, seq_len, hidden_size)`).
-
-## Next steps / Suggestions
-
-- Add an example function in `mainlad.py` that returns a pooled sentence embedding (mean pooling) and a utility to merge subword tokens into word-level vectors.
-- Optionally, add GPU support by moving model and tensors to `cuda` when available.
-
-If you want, I can update `mainlad.py` with the pooling and token-merge utilities and a short demo run.
+- CKA values here are from a small sample (10 aligned docs per category comparison), so treat them as directional rather than final.
+- For larger conclusions, rerun with more categories/docs and compare stability across seeds/checkpoints.
