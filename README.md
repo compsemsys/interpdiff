@@ -2,7 +2,7 @@
 
 This project gets wiki abstracts, runs them through LLMs to get token embeddings, mean-pools into document embeddings, then analyzes using CKA.
 
-See the latest findings [outputs\my_run3\cka\document_cka_by_category.md](outputs\my_run3\cka\document_cka_by_category.md)
+See the latest findings [outputs/my_run3/cka/document_cka_by_category.md](outputs/my_run3/cka/document_cka_by_category.md)
 
 There is a processing pipeline for those steps:
 
