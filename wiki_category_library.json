@@ -1,0 +1,891 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "title": "Category:Science",
+      "notes": "Broad root; few direct member pages, many subcategories.",
+      "stats": {
+        "size": 45,
+        "pages": 10,
+        "subcats": 35,
+        "files": 0,
+        "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+      },
+      "direct_subcategories": [
+        {
+          "title": "Category:Branches of science",
+          "stats": {
+            "size": 10,
+            "pages": 5,
+            "subcats": 5,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Criticism of science",
+          "stats": {
+            "size": 47,
+            "pages": 40,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Fringe science",
+          "stats": {
+            "size": 42,
+            "pages": 37,
+            "subcats": 5,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:History of science",
+          "stats": {
+            "size": 129,
+            "pages": 105,
+            "subcats": 23,
+            "files": 1,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Images by scientific discipline",
+          "stats": {
+            "size": 7,
+            "pages": 0,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Metascience",
+          "stats": {
+            "size": 34,
+            "pages": 31,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Natural history",
+          "stats": {
+            "size": 32,
+            "pages": 25,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Open science",
+          "stats": {
+            "size": 81,
+            "pages": 78,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:People in science",
+          "stats": {
+            "size": 7,
+            "pages": 0,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Quotations from science",
+          "stats": {
+            "size": 22,
+            "pages": 22,
+            "subcats": 0,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Science and technology",
+          "stats": {
+            "size": 13,
+            "pages": 3,
+            "subcats": 10,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Science books",
+          "stats": {
+            "size": 203,
+            "pages": 180,
+            "subcats": 23,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Science in society",
+          "stats": {
+            "size": 124,
+            "pages": 100,
+            "subcats": 24,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Science occupations",
+          "stats": {
+            "size": 51,
+            "pages": 48,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Science pioneers",
+          "stats": {
+            "size": 6,
+            "pages": 3,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Science stubs",
+          "stats": {
+            "size": 138,
+            "pages": 111,
+            "subcats": 27,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Science-related lists",
+          "stats": {
+            "size": 147,
+            "pages": 106,
+            "subcats": 41,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific buildings",
+          "stats": {
+            "size": 17,
+            "pages": 3,
+            "subcats": 14,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific classification",
+          "stats": {
+            "size": 16,
+            "pages": 10,
+            "subcats": 6,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific comparisons",
+          "stats": {
+            "size": 11,
+            "pages": 11,
+            "subcats": 0,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific disciplines",
+          "stats": {
+            "size": 6,
+            "pages": 1,
+            "subcats": 5,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific exploration",
+          "stats": {
+            "size": 4,
+            "pages": 0,
+            "subcats": 4,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific instruments",
+          "stats": {
+            "size": 53,
+            "pages": 45,
+            "subcats": 8,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific method",
+          "stats": {
+            "size": 133,
+            "pages": 118,
+            "subcats": 15,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific organizations",
+          "stats": {
+            "size": 39,
+            "pages": 10,
+            "subcats": 29,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific phenomena",
+          "stats": {
+            "size": 11,
+            "pages": 4,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific problems",
+          "stats": {
+            "size": 12,
+            "pages": 4,
+            "subcats": 8,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific schools",
+          "stats": {
+            "size": 4,
+            "pages": 4,
+            "subcats": 0,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific speculation",
+          "stats": {
+            "size": 12,
+            "pages": 6,
+            "subcats": 6,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientific terminology",
+          "stats": {
+            "size": 34,
+            "pages": 24,
+            "subcats": 10,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Scientists",
+          "stats": {
+            "size": 24,
+            "pages": 2,
+            "subcats": 22,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Time in science",
+          "stats": {
+            "size": 6,
+            "pages": 3,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Wikipedia categories named after science projects",
+          "stats": {
+            "size": 103,
+            "pages": 0,
+            "subcats": 103,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Women and science",
+          "stats": {
+            "size": 18,
+            "pages": 15,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Works about science",
+          "stats": {
+            "size": 31,
+            "pages": 4,
+            "subcats": 27,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Category:Culture",
+      "notes": "Broad root; more direct pages than Science, still many subcategories.",
+      "stats": {
+        "size": 98,
+        "pages": 47,
+        "subcats": 51,
+        "files": 0,
+        "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+      },
+      "direct_subcategories": [
+        {
+          "title": "Category:Art and culture law",
+          "stats": {
+            "size": 24,
+            "pages": 20,
+            "subcats": 4,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Artificial objects",
+          "stats": {
+            "size": 37,
+            "pages": 7,
+            "subcats": 30,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Awards for contributions to culture",
+          "stats": {
+            "size": 23,
+            "pages": 19,
+            "subcats": 4,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Clothing",
+          "stats": {
+            "size": 60,
+            "pages": 24,
+            "subcats": 36,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Collectivism",
+          "stats": {
+            "size": 25,
+            "pages": 14,
+            "subcats": 11,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Consensus reality",
+          "stats": {
+            "size": 31,
+            "pages": 28,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Counterculture",
+          "stats": {
+            "size": 67,
+            "pages": 47,
+            "subcats": 20,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural activism",
+          "stats": {
+            "size": 15,
+            "pages": 13,
+            "subcats": 2,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural concepts",
+          "stats": {
+            "size": 67,
+            "pages": 61,
+            "subcats": 6,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural depictions",
+          "stats": {
+            "size": 20,
+            "pages": 0,
+            "subcats": 20,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural education",
+          "stats": {
+            "size": 15,
+            "pages": 8,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural events",
+          "stats": {
+            "size": 25,
+            "pages": 6,
+            "subcats": 19,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural exchange",
+          "stats": {
+            "size": 83,
+            "pages": 68,
+            "subcats": 15,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural generations",
+          "stats": {
+            "size": 122,
+            "pages": 115,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural lists",
+          "stats": {
+            "size": 114,
+            "pages": 76,
+            "subcats": 38,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural mass media",
+          "stats": {
+            "size": 10,
+            "pages": 2,
+            "subcats": 8,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural organizations",
+          "stats": {
+            "size": 46,
+            "pages": 18,
+            "subcats": 28,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural policy",
+          "stats": {
+            "size": 16,
+            "pages": 14,
+            "subcats": 2,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural studies",
+          "stats": {
+            "size": 187,
+            "pages": 149,
+            "subcats": 38,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural symbols",
+          "stats": {
+            "size": 22,
+            "pages": 2,
+            "subcats": 20,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultural trends",
+          "stats": {
+            "size": 60,
+            "pages": 47,
+            "subcats": 13,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture and economy",
+          "stats": {
+            "size": 3,
+            "pages": 0,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture and the environment",
+          "stats": {
+            "size": 19,
+            "pages": 9,
+            "subcats": 10,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture by ethnicity",
+          "stats": {
+            "size": 96,
+            "pages": 0,
+            "subcats": 96,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture by language",
+          "stats": {
+            "size": 52,
+            "pages": 0,
+            "subcats": 52,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture by location",
+          "stats": {
+            "size": 15,
+            "pages": 0,
+            "subcats": 15,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture by period",
+          "stats": {
+            "size": 13,
+            "pages": 0,
+            "subcats": 13,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture stubs",
+          "stats": {
+            "size": 68,
+            "pages": 39,
+            "subcats": 29,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture-bound syndromes",
+          "stats": {
+            "size": 78,
+            "pages": 75,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Culture-related controversies",
+          "stats": {
+            "size": 21,
+            "pages": 14,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Cultures",
+          "stats": {
+            "size": 35,
+            "pages": 1,
+            "subcats": 34,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Encyclopedias of culture and ethnicity",
+          "stats": {
+            "size": 36,
+            "pages": 35,
+            "subcats": 1,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Essays about culture",
+          "stats": {
+            "size": 36,
+            "pages": 28,
+            "subcats": 8,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Family",
+          "stats": {
+            "size": 154,
+            "pages": 122,
+            "subcats": 32,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Food and drink",
+          "stats": {
+            "size": 61,
+            "pages": 14,
+            "subcats": 47,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Gambling",
+          "stats": {
+            "size": 18,
+            "pages": 1,
+            "subcats": 17,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Gardening",
+          "stats": {
+            "size": 67,
+            "pages": 43,
+            "subcats": 24,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Luxury",
+          "stats": {
+            "size": 11,
+            "pages": 8,
+            "subcats": 3,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Philosophy of culture",
+          "stats": {
+            "size": 21,
+            "pages": 20,
+            "subcats": 1,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Physical culture",
+          "stats": {
+            "size": 24,
+            "pages": 16,
+            "subcats": 8,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Popular culture",
+          "stats": {
+            "size": 93,
+            "pages": 66,
+            "subcats": 27,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Religion",
+          "stats": {
+            "size": 46,
+            "pages": 14,
+            "subcats": 32,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Ritual",
+          "stats": {
+            "size": 44,
+            "pages": 36,
+            "subcats": 8,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Science and culture",
+          "stats": {
+            "size": 27,
+            "pages": 12,
+            "subcats": 15,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Series",
+          "stats": {
+            "size": 27,
+            "pages": 2,
+            "subcats": 25,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Sharing",
+          "stats": {
+            "size": 17,
+            "pages": 10,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Sociology of culture",
+          "stats": {
+            "size": 69,
+            "pages": 62,
+            "subcats": 7,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Sports",
+          "stats": {
+            "size": 43,
+            "pages": 2,
+            "subcats": 41,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:The arts",
+          "stats": {
+            "size": 94,
+            "pages": 61,
+            "subcats": 33,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Topics in culture",
+          "stats": {
+            "size": 71,
+            "pages": 16,
+            "subcats": 55,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        },
+        {
+          "title": "Category:Venues",
+          "stats": {
+            "size": 4,
+            "pages": 0,
+            "subcats": 4,
+            "files": 0,
+            "updated_iso": "2026-04-22T00:31:11.145725+00:00"
+          }
+        }
+      ]
+    }
+  ]
+}

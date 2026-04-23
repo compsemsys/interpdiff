@@ -1,0 +1,1194 @@
+{
+  "labels": [
+    {
+      "model": "gemma",
+      "segment": "excerpt",
+      "category": "Category:Culture"
+    },
+    {
+      "model": "gemma",
+      "segment": "excerpt",
+      "category": "Category:Science"
+    },
+    {
+      "model": "qwen",
+      "segment": "excerpt",
+      "category": "Category:Culture"
+    },
+    {
+      "model": "qwen",
+      "segment": "excerpt",
+      "category": "Category:Science"
+    },
+    {
+      "model": "gemma",
+      "segment": "response",
+      "category": "Category:Culture"
+    },
+    {
+      "model": "gemma",
+      "segment": "response",
+      "category": "Category:Science"
+    },
+    {
+      "model": "qwen",
+      "segment": "response",
+      "category": "Category:Culture"
+    },
+    {
+      "model": "qwen",
+      "segment": "response",
+      "category": "Category:Science"
+    }
+  ],
+  "results": [
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 1.0
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.49694226242482725
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.9208785933879653
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.5938021911600643
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.752756624093812
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.5851370946170247
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8520446400752101
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.637459819400461
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.4969422624248274
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 1.0
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.6201930736694505
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.9283423755514066
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.5014504384793406
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.7595966473794938
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.6283342716246697
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.6681962384198242
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.9208785933879647
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.6201930736694509
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 1.0
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7299849295034267
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8254042020668975
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7111635605116026
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.9500865743268583
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7420802622258856
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.5938021911600643
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.9283423755514066
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7299849295034267
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 1.0
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.653444353422576
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8757762135767573
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7578759998714634
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8240786177629837
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.7527566240938124
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.5014504384793405
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8254042020668978
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.6534443534225758
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 1.0
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.6578831412493583
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8667374235105564
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7023696891014023
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.5851370946170249
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.7595966473794945
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7111635605116029
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8757762135767571
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.657883141249358
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 1.0
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7745835816258264
+    },
+    {
+      "a": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8755750756691751
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.85204464007521
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.6283342716246697
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.9500865743268581
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7578759998714634
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8667374235105564
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7745835816258259
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 1.0
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7900575520901149
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.6374598194004614
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.6681962384198245
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7420802622258856
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "excerpt",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8240786177629841
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7023696891014023
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "gemma",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 0.8755750756691748
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Culture"
+      },
+      "n_rows": 10,
+      "pairing": "position_matched",
+      "linear_cka": 0.7900575520901149
+    },
+    {
+      "a": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "b": {
+        "model": "qwen",
+        "segment": "response",
+        "category": "Category:Science"
+      },
+      "n_rows": 10,
+      "pairing": "doc_id_aligned",
+      "linear_cka": 1.0
+    }
+  ],
+  "focused": {
+    "cross_model_same_category": [
+      {
+        "a": {
+          "model": "gemma",
+          "segment": "excerpt",
+          "category": "Category:Culture"
+        },
+        "b": {
+          "model": "qwen",
+          "segment": "excerpt",
+          "category": "Category:Culture"
+        },
+        "n_rows": 10,
+        "pairing": "doc_id_aligned",
+        "linear_cka": 0.9208785933879653
+      },
+      {
+        "a": {
+          "model": "gemma",
+          "segment": "response",
+          "category": "Category:Culture"
+        },
+        "b": {
+          "model": "qwen",
+          "segment": "response",
+          "category": "Category:Culture"
+        },
+        "n_rows": 10,
+        "pairing": "doc_id_aligned",
+        "linear_cka": 0.8667374235105564
+      },
+      {
+        "a": {
+          "model": "gemma",
+          "segment": "excerpt",
+          "category": "Category:Science"
+        },
+        "b": {
+          "model": "qwen",
+          "segment": "excerpt",
+          "category": "Category:Science"
+        },
+        "n_rows": 10,
+        "pairing": "doc_id_aligned",
+        "linear_cka": 0.9283423755514066
+      },
+      {
+        "a": {
+          "model": "gemma",
+          "segment": "response",
+          "category": "Category:Science"
+        },
+        "b": {
+          "model": "qwen",
+          "segment": "response",
+          "category": "Category:Science"
+        },
+        "n_rows": 10,
+        "pairing": "doc_id_aligned",
+        "linear_cka": 0.8755750756691751
+      }
+    ],
+    "within_model_excerpt_vs_response": [
+      {
+        "a": {
+          "model": "gemma",
+          "segment": "excerpt",
+          "category": "Category:Culture"
+        },
+        "b": {
+          "model": "gemma",
+          "segment": "response",
+          "category": "Category:Culture"
+        },
+        "n_rows": 10,
+        "pairing": "doc_id_aligned",
+        "linear_cka": 0.752756624093812
+      },
+      {
+        "a": {
+          "model": "gemma",
+          "segment": "excerpt",
+          "category": "Category:Science"
+        },
+        "b": {
+          "model": "gemma",
+          "segment": "response",
+          "category": "Category:Science"
+        },
+        "n_rows": 10,
+        "pairing": "doc_id_aligned",
+        "linear_cka": 0.7595966473794938
+      },
+      {
+        "a": {
+          "model": "qwen",
+          "segment": "excerpt",
+          "category": "Category:Culture"
+        },
+        "b": {
+          "model": "qwen",
+          "segment": "response",
+          "category": "Category:Culture"
+        },
+        "n_rows": 10,
+        "pairing": "doc_id_aligned",
+        "linear_cka": 0.9500865743268583
+      },
+      {
+        "a": {
+          "model": "qwen",
+          "segment": "excerpt",
+          "category": "Category:Science"
+        },
+        "b": {
+          "model": "qwen",
+          "segment": "response",
+          "category": "Category:Science"
+        },
+        "n_rows": 10,
+        "pairing": "doc_id_aligned",
+        "linear_cka": 0.8240786177629837
+      }
+    ],
+    "category_to_category_same_model_segment": [
+      {
+        "a": {
+          "model": "gemma",
+          "segment": "excerpt",
+          "category": "Category:Culture"
+        },
+        "b": {
+          "model": "gemma",
+          "segment": "excerpt",
+          "category": "Category:Science"
+        },
+        "n_rows": 10,
+        "pairing": "position_matched",
+        "linear_cka": 0.49694226242482725
+      },
+      {
+        "a": {
+          "model": "gemma",
+          "segment": "response",
+          "category": "Category:Culture"
+        },
+        "b": {
+          "model": "gemma",
+          "segment": "response",
+          "category": "Category:Science"
+        },
+        "n_rows": 10,
+        "pairing": "position_matched",
+        "linear_cka": 0.6578831412493583
+      },
+      {
+        "a": {
+          "model": "qwen",
+          "segment": "excerpt",
+          "category": "Category:Culture"
+        },
+        "b": {
+          "model": "qwen",
+          "segment": "excerpt",
+          "category": "Category:Science"
+        },
+        "n_rows": 10,
+        "pairing": "position_matched",
+        "linear_cka": 0.7299849295034267
+      },
+      {
+        "a": {
+          "model": "qwen",
+          "segment": "response",
+          "category": "Category:Culture"
+        },
+        "b": {
+          "model": "qwen",
+          "segment": "response",
+          "category": "Category:Science"
+        },
+        "n_rows": 10,
+        "pairing": "position_matched",
+        "linear_cka": 0.7900575520901149
+      }
+    ]
+  }
+}

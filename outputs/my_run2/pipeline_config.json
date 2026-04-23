@@ -1,0 +1,21 @@
+{
+  "corpus": "F:\\code\\Independent Study\\data\\wiki_tree_corpus_for_cka.jsonl",
+  "words": 200,
+  "models": [
+    "F:\\path\\to\\gemma-3-1b-it",
+    "F:\\path\\to\\Qwen3.5-0.8B"
+  ],
+  "instruction": "Explain the following: {title}",
+  "instruction_placeholders": [
+    "title"
+  ],
+  "skip_generate": false,
+  "skip_cka": false,
+  "cka_chunk_rows": 4096,
+  "max_new_tokens": 128,
+  "batch_size": 4,
+  "chunk_size": 768,
+  "local_only": true,
+  "device": "cuda",
+  "aggregation_level": "document"
+}

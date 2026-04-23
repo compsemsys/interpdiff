@@ -1,0 +1,932 @@
+{
+  "analysis": "document_by_category",
+  "out_dir": "F:\\code\\Independent Study\\outputs\\my_run",
+  "models": [
+    "gemma-3-1b-it",
+    "Qwen3.5-0.8B"
+  ],
+  "skip_generate": false,
+  "chunk_rows": 4096,
+  "results": [
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "excerpt__vs__response",
+      "segment_a": "excerpt",
+      "segment_b": "response",
+      "category": "Category:Culture",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "Qwen3.5-0.8B",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Culture"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.9500865743268583
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "excerpt__vs__excerpt",
+      "segment_a": "excerpt",
+      "segment_b": "excerpt",
+      "category": "Category:Culture",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Culture"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.9208785933879647
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "excerpt__vs__response",
+      "segment_a": "excerpt",
+      "segment_b": "response",
+      "category": "Category:Culture",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Culture"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.8254042020668975
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "response__vs__excerpt",
+      "segment_a": "response",
+      "segment_b": "excerpt",
+      "category": "Category:Culture",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Culture"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.85204464007521
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "response__vs__response",
+      "segment_a": "response",
+      "segment_b": "response",
+      "category": "Category:Culture",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Culture"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.8667374235105564
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "excerpt__vs__response",
+      "segment_a": "excerpt",
+      "segment_b": "response",
+      "category": "Category:Culture",
+      "model_a": "gemma-3-1b-it",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Culture"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.752756624093812
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "excerpt__vs__response",
+      "segment_a": "excerpt",
+      "segment_b": "response",
+      "category": "Category:Science",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "Qwen3.5-0.8B",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Science"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.8240786177629837
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "excerpt__vs__excerpt",
+      "segment_a": "excerpt",
+      "segment_b": "excerpt",
+      "category": "Category:Science",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Science"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.9283423755514066
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "excerpt__vs__response",
+      "segment_a": "excerpt",
+      "segment_b": "response",
+      "category": "Category:Science",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Science"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.8757762135767573
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "response__vs__excerpt",
+      "segment_a": "response",
+      "segment_b": "excerpt",
+      "category": "Category:Science",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Science"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.6681962384198245
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "response__vs__response",
+      "segment_a": "response",
+      "segment_b": "response",
+      "category": "Category:Science",
+      "model_a": "Qwen3.5-0.8B",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Science"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.8755750756691748
+    },
+    {
+      "analysis": "document_by_category",
+      "aggregation": "document",
+      "segment": "excerpt__vs__response",
+      "segment_a": "excerpt",
+      "segment_b": "response",
+      "category": "Category:Science",
+      "model_a": "gemma-3-1b-it",
+      "model_b": "gemma-3-1b-it",
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 10,
+      "n_rows_total_a": 10,
+      "n_rows_total_b": 10,
+      "pairing": "doc_id_aligned",
+      "doc_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "row_slice": {
+        "filters": [
+          [
+            "category",
+            "Category:Science"
+          ]
+        ],
+        "doc_ids": null
+      },
+      "linear_cka": 0.7595966473794938
+    }
+  ],
+  "focused": {
+    "cross_model_same_segment": [
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "excerpt__vs__excerpt",
+        "segment_a": "excerpt",
+        "segment_b": "excerpt",
+        "category": "Category:Culture",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Culture"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.9208785933879647
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "response__vs__response",
+        "segment_a": "response",
+        "segment_b": "response",
+        "category": "Category:Culture",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Culture"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.8667374235105564
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "excerpt__vs__excerpt",
+        "segment_a": "excerpt",
+        "segment_b": "excerpt",
+        "category": "Category:Science",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Science"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.9283423755514066
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "response__vs__response",
+        "segment_a": "response",
+        "segment_b": "response",
+        "category": "Category:Science",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Science"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.8755750756691748
+      }
+    ],
+    "within_model_excerpt_vs_response": [
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "excerpt__vs__response",
+        "segment_a": "excerpt",
+        "segment_b": "response",
+        "category": "Category:Culture",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "Qwen3.5-0.8B",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Culture"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.9500865743268583
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "excerpt__vs__response",
+        "segment_a": "excerpt",
+        "segment_b": "response",
+        "category": "Category:Culture",
+        "model_a": "gemma-3-1b-it",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Culture"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.752756624093812
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "excerpt__vs__response",
+        "segment_a": "excerpt",
+        "segment_b": "response",
+        "category": "Category:Science",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "Qwen3.5-0.8B",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Science"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.8240786177629837
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "excerpt__vs__response",
+        "segment_a": "excerpt",
+        "segment_b": "response",
+        "category": "Category:Science",
+        "model_a": "gemma-3-1b-it",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Science"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.7595966473794938
+      }
+    ],
+    "cross_model_cross_segment": [
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "excerpt__vs__response",
+        "segment_a": "excerpt",
+        "segment_b": "response",
+        "category": "Category:Culture",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Culture"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.8254042020668975
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "response__vs__excerpt",
+        "segment_a": "response",
+        "segment_b": "excerpt",
+        "category": "Category:Culture",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Culture"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.85204464007521
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "excerpt__vs__response",
+        "segment_a": "excerpt",
+        "segment_b": "response",
+        "category": "Category:Science",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Science"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.8757762135767573
+      },
+      {
+        "analysis": "document_by_category",
+        "aggregation": "document",
+        "segment": "response__vs__excerpt",
+        "segment_a": "response",
+        "segment_b": "excerpt",
+        "category": "Category:Science",
+        "model_a": "Qwen3.5-0.8B",
+        "model_b": "gemma-3-1b-it",
+        "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+        "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+        "n_rows": 10,
+        "n_rows_total_a": 10,
+        "n_rows_total_b": 10,
+        "pairing": "doc_id_aligned",
+        "doc_ids": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "row_slice": {
+          "filters": [
+            [
+              "category",
+              "Category:Science"
+            ]
+          ],
+          "doc_ids": null
+        },
+        "linear_cka": 0.6681962384198245
+      }
+    ]
+  }
+}

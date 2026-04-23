@@ -1,9 +1,17 @@
 """
-Linear CKA between two aligned word-embedding matrices.
+Linear CKA between two aligned embedding matrices.
 
 Uses the linear (inner-product) CKA from Kornblith et al.,
 "Similarity of Neural Network Representations Revisited" (ICML 2019).
-Rows must correspond to the same word instances (same meta order).
+Rows must correspond to the same instances (same meta order), e.g.
+word-level rows or document-level rows.
+
+Key functions:
+- ``pairwise_linear_cka_from_paths``: load aligned npy files, apply optional row slicing, run CKA.
+- ``row_indices_meta_match``: resolve metadata/doc-id row filters to index arrays.
+- ``linear_cka_chunked``: memory-aware CKA accumulation across row blocks.
+- ``validate_aligned_meta``: enforce row identity alignment before any comparison.
+- ``main``: CLI entry for quick comparisons, filtering, bootstrap, and JSON reporting.
 
 Example:
   python cka_word_embeddings.py \\
@@ -14,8 +22,10 @@ Example:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import time
 from collections import defaultdict
 from typing import Any
@@ -46,7 +56,19 @@ def load_embeddings_and_meta(
 
 
 def meta_key(m: dict[str, Any]) -> tuple:
-    return (m["doc_id"], tuple(m["span"]), m["word"])
+    """Comparable row identity for word-level and document-level metadata."""
+    if "span" in m and "word" in m:
+        return ("word", int(m["doc_id"]), tuple(m["span"]), m["word"])
+    if "doc_id" in m:
+        return (
+            "document",
+            int(m["doc_id"]),
+            m.get("segment", ""),
+            m.get("category", ""),
+            m.get("title", ""),
+        )
+    # Fallback for unexpected row metadata schemas.
+    return ("generic", json.dumps(m, sort_keys=True, default=str))
 
 
 def validate_aligned_meta(meta_a: list, meta_b: list) -> None:
@@ -59,6 +81,168 @@ def validate_aligned_meta(meta_a: list, meta_b: list) -> None:
             raise ValueError(
                 f"Metadata mismatch at row {i}: {meta_key(a)!r} vs {meta_key(b)!r}"
             )
+
+
+def parse_meta_filter_arg(spec: str) -> tuple[str, str]:
+    """
+    Parse ``KEY=VALUE`` for row-wise metadata equality (embedding ``meta`` rows).
+
+    The first ``=`` separates key and value; values may contain ``=``.
+    """
+    k, sep, v = spec.partition("=")
+    if not sep:
+        raise ValueError(f"Filter must be KEY=VALUE, got {spec!r}")
+    key, val = k.strip(), v.strip()
+    if not key:
+        raise ValueError(f"Empty filter key in {spec!r}")
+    return key, val
+
+
+def parse_doc_ids_arg(s: str | None) -> set[int] | None:
+    """Comma-separated doc ids; empty or None means no doc-id restriction."""
+    if not s or not str(s).strip():
+        return None
+    out: set[int] = set()
+    for part in str(s).split(","):
+        part = part.strip()
+        if part:
+            out.add(int(part))
+    return out if out else None
+
+
+def slice_spec_dict(
+    filters: list[tuple[str, str]],
+    doc_ids: set[int] | None,
+) -> dict[str, Any]:
+    return {
+        "filters": [[a, b] for a, b in filters],
+        "doc_ids": sorted(doc_ids) if doc_ids else None,
+    }
+
+
+def row_indices_meta_match(
+    meta: list[dict[str, Any]],
+    *,
+    filters: list[tuple[str, str]] | None = None,
+    doc_ids: set[int] | None = None,
+) -> np.ndarray:
+    """
+    Indices of rows whose metadata passes all equality ``filters`` and optional ``doc_ids``.
+
+    With no filters and no ``doc_ids``, returns ``arange(len(meta))``.
+    """
+    filters = filters or []
+    if not filters and doc_ids is None:
+        return np.arange(len(meta), dtype=np.intp)
+    # Keep explicit Python filtering to support mixed meta schemas robustly.
+    idxs: list[int] = []
+    for i, m in enumerate(meta):
+        if doc_ids is not None and int(m.get("doc_id", -1)) not in doc_ids:
+            continue
+        ok = True
+        for key, val in filters:
+            if key == "doc_id":
+                if int(m.get("doc_id", -(10**18))) != int(val):
+                    ok = False
+                    break
+            else:
+                cur = m.get(key, "")
+                if cur is None:
+                    cur = ""
+                if str(cur) != val:
+                    ok = False
+                    break
+        if ok:
+            idxs.append(i)
+    return np.asarray(idxs, dtype=np.intp)
+
+
+def apply_row_indices(
+    X: np.ndarray,
+    Y: np.ndarray,
+    meta_a: list,
+    meta_b: list,
+    idx: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, list, list]:
+    """Subset aligned matrices and meta to the given row indices."""
+    if len(idx) == 0:
+        raise ValueError("No rows selected")
+    Xs = np.asarray(X[idx], dtype=X.dtype)
+    Ys = np.asarray(Y[idx], dtype=Y.dtype)
+    sma = [meta_a[i] for i in idx]
+    smb = [meta_b[i] for i in idx]
+    validate_aligned_meta(sma, smb)
+    return Xs, Ys, sma, smb
+
+
+def cka_row_slice_file_suffix(
+    filters: list[tuple[str, str]],
+    doc_ids: set[int] | None,
+    label: str | None,
+) -> str:
+    """
+    Filename suffix for CKA JSON outputs when row slicing is active.
+
+    Empty string means use the default unsliced basename.
+    """
+    if not filters and not doc_ids:
+        return ""
+    if label and label.strip():
+        safe = re.sub(r"[^a-zA-Z0-9._-]+", "_", label.strip())[:64].strip("_")
+        if safe:
+            return "__" + safe
+    payload = json.dumps(
+        {"f": filters, "d": sorted(doc_ids) if doc_ids else []},
+        sort_keys=True,
+    ).encode()
+    return "__slice_" + hashlib.md5(payload, usedforsecurity=False).hexdigest()[:8]
+
+
+def pairwise_linear_cka_from_paths(
+    path_a: str,
+    path_b: str,
+    *,
+    chunk_rows: int,
+    filters: list[tuple[str, str]] | None = None,
+    doc_ids: set[int] | None = None,
+) -> dict[str, Any]:
+    """
+    Load two aligned embedding npy files, optionally slice rows by metadata, run chunked linear CKA.
+
+    Returns a dict suitable for JSON (includes ``n_rows``, ``n_rows_total``, optional ``row_slice``).
+    """
+    filters = list(filters or [])
+    xa, ma = load_embeddings_and_meta(path_a)
+    xb, mb = load_embeddings_and_meta(path_b)
+    validate_aligned_meta(ma, mb)
+    idx = row_indices_meta_match(ma, filters=filters, doc_ids=doc_ids)
+    n_total = len(ma)
+    has_slice = bool(filters) or bool(doc_ids)
+    if len(idx) == 0:
+        return {
+            "linear_cka": float("nan"),
+            "path_a": path_a,
+            "path_b": path_b,
+            "n_rows": 0,
+            "n_rows_total": n_total,
+            "row_slice": slice_spec_dict(filters, doc_ids) if has_slice else None,
+            "error": "no rows matched filters",
+        }
+    if len(idx) < len(ma):
+        xa_s, xb_s, _, _ = apply_row_indices(xa, xb, ma, mb, idx)
+    else:
+        xa_s, xb_s = xa, xb
+    val = float(linear_cka_chunked(xa_s, xb_s, chunk_rows))
+    out: dict[str, Any] = {
+        "linear_cka": val,
+        "path_a": path_a,
+        "path_b": path_b,
+        "n_rows": int(xa_s.shape[0]),
+        "n_rows_total": n_total,
+    }
+    if has_slice:
+        out["row_slice"] = slice_spec_dict(filters, doc_ids)
+    return out
 
 
 def center_columns(X: np.ndarray) -> np.ndarray:
@@ -121,6 +305,7 @@ def linear_cka_chunked(
     xt_x = np.zeros((d1, d1), dtype=np.float64)
     yt_y = np.zeros((d2, d2), dtype=np.float64)
 
+    # Stream row blocks to reduce peak RAM compared with one monolithic multiply.
     for start in range(0, n, chunk_rows):
         end = min(start + chunk_rows, n)
         xb = np.asarray(X[start:end], dtype=np.float64)
@@ -219,6 +404,19 @@ def main() -> None:
         help="Process CKA in row blocks of this size (lower = less RAM spike). 0 = one dense pass (higher peak RAM).",
     )
     p.add_argument(
+        "--cka_filter",
+        action="append",
+        default=None,
+        metavar="KEY=VALUE",
+        help="Keep rows whose word meta matches all filters (AND). Example: --cka_filter category=Category:Statistics",
+    )
+    p.add_argument(
+        "--cka_doc_ids",
+        default=None,
+        metavar="IDS",
+        help="Comma-separated doc_id list (intersection with --cka_filter).",
+    )
+    p.add_argument(
         "--threads",
         type=int,
         default=4,
@@ -232,6 +430,15 @@ def main() -> None:
     )
     args = p.parse_args()
 
+    row_filters: list[tuple[str, str]] = []
+    if args.cka_filter:
+        try:
+            for spec in args.cka_filter:
+                row_filters.append(parse_meta_filter_arg(spec))
+        except ValueError as e:
+            p.error(str(e))
+    row_doc_ids = parse_doc_ids_arg(args.cka_doc_ids)
+
     _limit_threads(args.threads)
 
     rng = np.random.default_rng(args.seed)
@@ -244,6 +451,12 @@ def main() -> None:
     load_s = time.perf_counter() - t0
 
     validate_aligned_meta(meta_a, meta_b)
+
+    if row_filters or row_doc_ids:
+        idx = row_indices_meta_match(meta_a, filters=row_filters, doc_ids=row_doc_ids)
+        if len(idx) == 0:
+            p.error("No rows matched --cka_filter / --cka_doc_ids")
+        X, Y, meta_a, meta_b = apply_row_indices(X, Y, meta_a, meta_b, idx)
 
     if args.sample_size is not None:
         X, Y, meta_a = subsample_rows(X, Y, meta_a, rng, args.sample_size)
@@ -273,6 +486,9 @@ def main() -> None:
         "chunk_rows": args.chunk_rows,
         "threads": args.threads,
         "dtype": args.dtype,
+        "row_slice": slice_spec_dict(row_filters, row_doc_ids)
+        if (row_filters or row_doc_ids)
+        else None,
     }
 
     print(f"n={n}, d_a={d1}, d_b={d2}, dtype={args.dtype}, chunk_rows={args.chunk_rows}, threads={args.threads}")

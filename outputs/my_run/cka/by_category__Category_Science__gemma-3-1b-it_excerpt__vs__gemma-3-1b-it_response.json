@@ -1,0 +1,38 @@
+{
+  "analysis": "document_by_category",
+  "aggregation": "document",
+  "segment": "excerpt__vs__response",
+  "segment_a": "excerpt",
+  "segment_b": "response",
+  "category": "Category:Science",
+  "model_a": "gemma-3-1b-it",
+  "model_b": "gemma-3-1b-it",
+  "path_a": "F:\\code\\Independent Study\\outputs\\my_run\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+  "path_b": "F:\\code\\Independent Study\\outputs\\my_run\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+  "n_rows": 10,
+  "n_rows_total_a": 10,
+  "n_rows_total_b": 10,
+  "pairing": "doc_id_aligned",
+  "doc_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "row_slice": {
+    "filters": [
+      [
+        "category",
+        "Category:Science"
+      ]
+    ],
+    "doc_ids": null
+  },
+  "linear_cka": 0.7595966473794938
+}
