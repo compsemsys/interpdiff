@@ -1,0 +1,79 @@
+{
+  "timestamp": "20260513_210411",
+  "stage_mode": true,
+  "corpus": "F:\\code\\Independent Study\\data\\wiki_tree_corpus_for_cka.jsonl",
+  "words": 200,
+  "device": "cuda",
+  "local_only": true,
+  "models": [
+    "F:\\quantas\\models\\google\\gemma-3-1b-it",
+    "F:\\quantas\\models\\Qwen\\Qwen3.5-0.8B"
+  ],
+  "skip_generate": false,
+  "skip_cka": false,
+  "cka_chunk_rows": 4096,
+  "max_new_tokens": 1500,
+  "max_generated_words": 200,
+  "instruction": "Explain the following: {title}",
+  "instruction_placeholders": [
+    "title"
+  ],
+  "num_docs": 200,
+  "aggregation_level": "document",
+  "artifacts": {
+    "corpus_source": "F:\\code\\Independent Study\\outputs\\my_run5\\corpus_source.jsonl",
+    "corpus_excerpts_used": "F:\\code\\Independent Study\\outputs\\my_run5\\corpus_excerpts_used.jsonl",
+    "pipeline_config": "F:\\code\\Independent Study\\outputs\\my_run5\\pipeline_config.json",
+    "pipeline_state": "F:\\code\\Independent Study\\outputs\\my_run5\\pipeline_state.json",
+    "excerpts_gemma-3-1b-it_token_embeddings": "F:\\code\\Independent Study\\outputs\\my_run5\\excerpts\\gemma-3-1b-it\\token_embeddings.npy",
+    "excerpts_gemma-3-1b-it_document_embeddings": "F:\\code\\Independent Study\\outputs\\my_run5\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+    "excerpts_Qwen3.5-0.8B_token_embeddings": "F:\\code\\Independent Study\\outputs\\my_run5\\excerpts\\Qwen3.5-0.8B\\token_embeddings.npy",
+    "excerpts_Qwen3.5-0.8B_document_embeddings": "F:\\code\\Independent Study\\outputs\\my_run5\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+    "responses_gemma-3-1b-it_token_embeddings": "F:\\code\\Independent Study\\outputs\\my_run5\\responses\\gemma-3-1b-it\\token_embeddings.npy",
+    "responses_gemma-3-1b-it_document_embeddings": "F:\\code\\Independent Study\\outputs\\my_run5\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+    "responses_Qwen3.5-0.8B_token_embeddings": "F:\\code\\Independent Study\\outputs\\my_run5\\responses\\Qwen3.5-0.8B\\token_embeddings.npy",
+    "responses_Qwen3.5-0.8B_document_embeddings": "F:\\code\\Independent Study\\outputs\\my_run5\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+    "cka_index": "F:\\code\\Independent Study\\outputs\\my_run5\\cka\\cka_index.json",
+    "cka_document_by_category": "F:\\code\\Independent Study\\outputs\\my_run5\\cka\\document_cka_by_category.json"
+  },
+  "timings_sec": {
+    "generation_total": 0.0,
+    "embedding_total": 0.0,
+    "models": {
+      "gemma-3-1b-it": {
+        "embedding_excerpt": 68.222,
+        "embedding_response": 104.095
+      },
+      "Qwen3.5-0.8B": {
+        "embedding_excerpt": 85.756,
+        "embedding_response": 130.49
+      }
+    },
+    "total": 0.223
+  },
+  "cka": [
+    {
+      "segment": "excerpt",
+      "aggregation": "document",
+      "model_a": "gemma-3-1b-it",
+      "model_b": "Qwen3.5-0.8B",
+      "linear_cka": 0.8258848837269679,
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run5\\excerpts\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run5\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 200,
+      "n_rows_total": 200
+    },
+    {
+      "segment": "response",
+      "aggregation": "document",
+      "model_a": "gemma-3-1b-it",
+      "model_b": "Qwen3.5-0.8B",
+      "linear_cka": 0.6335310593578966,
+      "path_a": "F:\\code\\Independent Study\\outputs\\my_run5\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+      "path_b": "F:\\code\\Independent Study\\outputs\\my_run5\\responses\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+      "n_rows": 200,
+      "n_rows_total": 200
+    }
+  ],
+  "last_stage_update": "2026-05-14T00:55:53.387975"
+}

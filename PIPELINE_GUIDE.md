@@ -25,7 +25,7 @@ Example sources in this repo: `data/wiki_tree_corpus_for_cka.jsonl`, or JSONL pr
 | Stage | What it does |
 |-------|----------------|
 | `init` | Writes excerpt JSONL, copies/records corpus metadata, creates `pipeline_config.json` and `pipeline_state.json` under `--out_dir`. |
-| `generate` | For each `--models` entry: loads the causal LM, builds prompts from `--instruction`, writes `responses/<slug>/responses.jsonl` (includes `prompt` and `response`). Skipped if `skip_generate` was set at init. |
+| `generate` | For each `--models` entry: loads the causal LM, builds prompts from `--instruction`, writes `responses/<slug>/responses.jsonl` (includes `prompt` and `response`). Generation length is capped by `--max_new_tokens` (new tokens) and, optionally, `--max_generated_words` (decoded **generated completion** words only—see **Generation limits** below). Skipped if `skip_generate` was set at init. |
 | `embed_excerpts` | Token embeddings + aggregation (`--aggregation_level word|document|both`) for excerpt text; artifacts under `excerpts/<slug>/`. |
 | `embed_responses` | Same for generated responses under `responses/<slug>/`. Requires generation outputs unless `skip_generate`. |
 | `cka` | Pairwise **linear CKA** on aligned embedding rows from the configured aggregation level (`word`, `document`, or both); writes `cka/cka_index.json` and per-pair JSON files. For document aggregation, also writes a category-stratified matrix at `cka/document_cka_by_category.json`. Honors `skip_cka` from `pipeline_config.json` on staged runs. |
@@ -38,17 +38,10 @@ From the repo root (adjust paths and venv):
 
 ```powershell
 cd F:\code\Independent Study
-.\.venv313\Scripts\python.exe .\run_categorized_corpus.py `
-  --corpus "F:\code\Independent Study\data\wiki_tree_corpus_for_cka.jsonl" `
-  --out_dir "F:\code\Independent Study\outputs\my_run2" `
-  --models "F:\path\to\gemma-3-1b-it" "F:\path\to\Qwen3.5-0.8B" `
-  --aggregation_level "document" `
-  --words 200 `
-  --max_new_tokens 128 `
-  --batch_size 4 `
-  --chunk_size 768 `
-  --stage "init"
+.\.venv313\Scripts\python.exe .\run_categorized_corpus.py --corpus "F:\code\Independent Study\data\wiki_tree_corpus_for_cka.jsonl" --out_dir "F:\code\Independent Study\outputs\my_run4" --models "F:\quantas\models\google\gemma-3-1b-it" "F:\quantas\models\Qwen\Qwen3.5-0.8B" --aggregation_level "document" --words 200 --max_new_tokens 800 --max_generated_words 200 --batch_size 4 --chunk_size 768 --stage init
 ```
+
+Omit `--max_generated_words` if you only want the `--max_new_tokens` cap on generation.
 
 If `--out_dir` is omitted on **`--stage init` only**, a timestamped directory under `outputs/categorized_<timestamp>/` is created.
 
@@ -66,7 +59,8 @@ $RC = "F:\code\Independent Study\run_categorized_corpus.py"
 
 & $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage init --words 200 --max_new_tokens 128 --batch_size 4 --chunk_size 768
 
-& $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage generate
+# Same generation caps as init (required). Add `--max_generated_words N` here too if you set it at init.
+& $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage generate --max_new_tokens 128
 
 & $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage embed_excerpts
 
@@ -77,7 +71,7 @@ $RC = "F:\code\Independent Study\run_categorized_corpus.py"
 
 You can stop between lines and resume days later; see **Resume and overwrite** below.
 
-**Important:** After `init`, every later stage must use CLI flags that **match** `pipeline_config.json` exactly for: `--instruction`, `--batch_size`, `--chunk_size`, `--aggregation_level`, `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, and local-only vs `--allow_remote`. `--max_new_tokens` must match when running **`generate`**. If you need to change those, redo **`init`** with `--overwrite` (or a new `--out_dir`).
+**Important:** After `init`, every later stage must use CLI flags that **match** `pipeline_config.json` exactly for: `--instruction`, `--batch_size`, `--chunk_size`, `--aggregation_level`, `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, and local-only vs `--allow_remote`. For the **`generate`** stage only, `--max_new_tokens` and `--max_generated_words` must each match the effective saved values (see **Legacy `max_words` in config** under Troubleshooting). If you need to change those, redo **`init`** with `--overwrite` (or a new `--out_dir`).
 
 ## Resume and overwrite
 
@@ -91,7 +85,7 @@ You can stop between lines and resume days later; see **Resume and overwrite** b
 
 ## Configuration files under `--out_dir`
 
-- **`pipeline_config.json`** — Frozen settings from `init` (corpus path, word count, model paths, instruction template, batch/chunk sizes, `skip_generate`, `skip_cka`, etc.). Staged runs load this and **validate** your CLI against it.
+- **`pipeline_config.json`** — Frozen settings from `init` (corpus path, excerpt `--words`, model paths, instruction template, generation caps `max_new_tokens` / optional `max_generated_words`, batch/chunk sizes, `skip_generate`, `skip_cka`, etc.). Staged runs load this and **validate** your CLI against it.
 - **`pipeline_state.json`** — List of completed stage names (`init`, `generate`, …).
 - **`run_info.json`** — Timings, artifact paths, CKA summary records (merged across stages).
 
@@ -100,6 +94,17 @@ You can stop between lines and resume days later; see **Resume and overwrite** b
 Must contain at least one of `{title}` or `{excerpt}`. Only these placeholders are allowed.
 
 Default: `Explain the following: {title}`
+
+## Generation limits (`generate` stage only)
+
+These flags affect **only** causal LM decoding when writing `responses/<slug>/responses.jsonl`. They do **not** change how many words are taken from the corpus for excerpts (`--words` is separate) and do **not** impose a word limit on embedding inputs beyond whatever text was generated and saved.
+
+| Flag | Role |
+|------|------|
+| `--max_new_tokens` | Hard ceiling on **new** tokens from `model.generate` (per completion). May finish earlier on EOS. |
+| `--max_generated_words` | Optional. Early stopping once the **decoded generated completion** (tokens after the prompt—the assistant reply) reaches **N** whitespace-separated words; hyphenated forms like `well-known` count as **one** word. Still limited by `--max_new_tokens` and EOS. After stop, the completion may be trimmed to at most **N** words so the cap is strict. |
+
+Both values are recorded at **`init`** and must be repeated exactly on **`--stage generate`** in staged runs.
 
 ## Common CLI options
 
@@ -110,7 +115,8 @@ Default: `Explain the following: {title}`
 | `--models` | One or more **local** checkpoint directories; order and paths must match `pipeline_config.json` when resuming. |
 | `--words` | First N words per doc used as excerpt (stored at init). |
 | `--instruction` | Prompt template; see above. |
-| `--max_new_tokens` | Generation length; must match config for `--stage generate`. |
+| `--max_new_tokens` | **Generate** stage: max new tokens per completion; must match config for `--stage generate`. |
+| `--max_generated_words` | **Generate** stage only (optional): max words in the decoded **generated reply**; see **Generation limits**. Must match config for `--stage generate`. |
 | `--batch_size`, `--chunk_size` | Embedding batching (stored at init). |
 | `--aggregation_level` | Aggregation output from token embeddings: `word` (default), `document`, or `both` (stored at init). CKA runs on the available aggregation output(s). |
 | `--skip_generate` | Excerpt-only pipeline: no `responses/` generation; response embedding and response CKA pairs are omitted. |
@@ -176,7 +182,7 @@ Exact filenames follow `sanitize_model_slug()` (derived from the model directory
 
 ## Wikipedia helper script
 
-`scripts/run_wiki_tree_cka_pipeline.py` builds `wiki_tree_corpus_for_cka`-style JSONL from `data/wiki_tree_random.jsonl` and then runs **`run_categorized_corpus.py` with `--stage all`** (full pipeline in one subprocess). It does **not** expose `--stage`; for multi-day staged runs, call `run_categorized_corpus.py` yourself with the `--corpus-out` path from that script (or your own JSONL).
+`scripts/run_wiki_tree_cka_pipeline.py` builds `wiki_tree_corpus_for_cka`-style JSONL from `data/wiki_tree_random.jsonl` and then runs **`run_categorized_corpus.py` with `--stage all`** (full pipeline in one subprocess). It forwards `--max-new-tokens` and optional **`--max-generated-words`** (cap on words in the **generated** reply only). It does **not** expose `--stage`; for multi-day staged runs, call `run_categorized_corpus.py` yourself with the `--corpus-out` path from that script (or your own JSONL).
 
 ## Ad-hoc CKA on existing `.npy` files
 

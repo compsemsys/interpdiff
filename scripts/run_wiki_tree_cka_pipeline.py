@@ -119,6 +119,14 @@ def main() -> None:
     )
     p.add_argument("--max-new-tokens", type=int, default=128, dest="max_new_tokens")
     p.add_argument(
+        "--max-generated-words",
+        type=int,
+        default=None,
+        dest="max_generated_words",
+        metavar="N",
+        help="Optional cap on words in the generated reply; forwarded to run_categorized_corpus --max_generated_words",
+    )
+    p.add_argument(
         "--instruction",
         default="Explain the following: {title}",
         help="Forwarded to run_categorized_corpus (supports {title}, {excerpt})",
@@ -172,6 +180,8 @@ def main() -> None:
         "--instruction",
         args.instruction,
     ]
+    if args.max_generated_words is not None:
+        ts_cmd += ["--max_generated_words", str(args.max_generated_words)]
     if args.out_dir:
         ts_cmd += ["--out_dir", str(args.out_dir)]
     if args.skip_generate:

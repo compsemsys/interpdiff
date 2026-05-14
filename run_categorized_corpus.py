@@ -6,6 +6,9 @@ Stages (use ``--stage`` to run one at a time; later stages require the same
 
 1. **init** — excerpts JSONL, corpus copy, ``pipeline_config.json``, ``pipeline_state.json``.
 2. **generate** — causal LM responses per model (unless ``skip_generate`` in config).
+   Optional ``--max_generated_words`` (``generate`` only) early-stops once the decoded **model completion**
+   reaches N whitespace-delimited words (still capped by ``--max_new_tokens`` and EOS);
+   hyphenated forms count as one word. Does not cap excerpt ``--words`` or embeddings.
 3. **embed_excerpts** — token + aggregated npy under ``excerpts/<slug>/``.
 4. **embed_responses** — token + aggregated npy under ``responses/<slug>/`` (needs generation).
 5. **cka** — pairwise linear CKA under ``cka/``.
@@ -167,6 +170,16 @@ def _save_pipeline_config(out_dir: str, cfg: dict[str, Any]) -> None:
     _save_json(os.path.join(out_dir, CONFIG_NAME), cfg)
 
 
+def _effective_max_generated_words(cfg: dict[str, Any]) -> int | None:
+    """Frozen generation word cap from ``pipeline_config.json``.
+
+    Prefers ``max_generated_words``; falls back to legacy ``max_words`` so older runs resume.
+    """
+    if "max_generated_words" in cfg:
+        return cfg["max_generated_words"]
+    return cfg.get("max_words")
+
+
 def _load_pipeline_state(out_dir: str) -> dict[str, Any]:
     p = os.path.join(out_dir, STATE_NAME)
     if not os.path.isfile(p):
@@ -212,6 +225,7 @@ def _cfg_matches_init(
     skip_cka: bool,
     cka_chunk_rows: int,
     max_new_tokens: int,
+    max_generated_words: int | None,
     batch_size: int,
     chunk_size: int,
     local_only: bool,
@@ -226,6 +240,7 @@ def _cfg_matches_init(
         and cfg.get("skip_cka") == skip_cka
         and cfg.get("cka_chunk_rows") == cka_chunk_rows
         and cfg.get("max_new_tokens") == max_new_tokens
+        and _effective_max_generated_words(cfg) == max_generated_words
         and cfg.get("batch_size") == batch_size
         and cfg.get("chunk_size") == chunk_size
         and cfg.get("local_only") == local_only
@@ -534,6 +549,7 @@ def run_stage_init(
     skip_cka: bool,
     cka_chunk_rows: int,
     max_new_tokens: int,
+    max_generated_words: int | None,
     batch_size: int,
     chunk_size: int,
     local_only: bool,
@@ -559,6 +575,7 @@ def run_stage_init(
             skip_cka=skip_cka,
             cka_chunk_rows=cka_chunk_rows,
             max_new_tokens=max_new_tokens,
+            max_generated_words=max_generated_words,
             batch_size=batch_size,
             chunk_size=chunk_size,
             local_only=local_only,
@@ -590,6 +607,7 @@ def run_stage_init(
         "skip_cka": skip_cka,
         "cka_chunk_rows": cka_chunk_rows,
         "max_new_tokens": max_new_tokens,
+        "max_generated_words": max_generated_words,
         "batch_size": batch_size,
         "chunk_size": chunk_size,
         "local_only": local_only,
@@ -618,6 +636,7 @@ def run_stage_init(
         "skip_cka": skip_cka,
         "cka_chunk_rows": cka_chunk_rows,
         "max_new_tokens": max_new_tokens,
+        "max_generated_words": max_generated_words,
         "instruction": instruction,
         "instruction_placeholders": instruction_keys,
         "num_docs": len(excerpt_rows),
@@ -636,6 +655,7 @@ def run_stage_generate(
     excerpt_rows: list[dict[str, Any]],
     instruction: str,
     max_new_tokens: int,
+    max_generated_words: int | None,
     device: str,
     local_only: bool,
     force_redo: bool,
@@ -662,7 +682,9 @@ def run_stage_generate(
                 excerpt=row["text"],
                 title=str(row.get("title") or ""),
             )
-            resp_text = generate_completion(tok, gen, prompt, device, max_new_tokens)
+            resp_text = generate_completion(
+                tok, gen, prompt, device, max_new_tokens, max_generated_words=max_generated_words
+            )
             lines_out.append(
                 {
                     "doc_id": row["doc_id"],
@@ -1071,6 +1093,20 @@ def main() -> None:
     )
     p.add_argument("--max_new_tokens", type=int, default=256)
     p.add_argument(
+        "--max_generated_words",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Optional, generate stage only: stop once the model's decoded completion "
+            "(the assistant reply, not the prompt or excerpt corpus) has at least N "
+            "whitespace-delimited words; hyphenated spellings count as one word. "
+            "Still bounded by --max_new_tokens and EOS. Does not cap --words excerpts or "
+            "embedding length. Stored as max_generated_words in pipeline_config; must match "
+            "on --stage generate. Legacy configs may still have max_words (same meaning)."
+        ),
+    )
+    p.add_argument(
         "--instruction",
         default="Explain the following: {title}",
         help="Prompt template; {title} and/or {excerpt}",
@@ -1137,6 +1173,8 @@ def main() -> None:
         p.error(f"--instruction has unknown placeholder(s): {bad}; allowed: excerpt, title")
     if not keys:
         p.error("--instruction must contain at least one of {excerpt}, {title}")
+    if args.max_generated_words is not None and args.max_generated_words < 1:
+        p.error("--max_generated_words must be >= 1 when set")
 
     force_redo = bool(args.overwrite or not args.resume)
 
@@ -1167,6 +1205,7 @@ def main() -> None:
             skip_cka=args.skip_cka,
             cka_chunk_rows=args.cka_chunk_rows,
             max_new_tokens=args.max_new_tokens,
+            max_generated_words=args.max_generated_words,
             batch_size=args.batch_size,
             chunk_size=args.chunk_size,
             local_only=local_only,
@@ -1182,6 +1221,7 @@ def main() -> None:
                 excerpt_rows=excerpt_rows,
                 instruction=args.instruction,
                 max_new_tokens=args.max_new_tokens,
+                max_generated_words=args.max_generated_words,
                 device=device,
                 local_only=local_only,
                 force_redo=force_redo,
@@ -1250,6 +1290,7 @@ def main() -> None:
             skip_cka=args.skip_cka,
             cka_chunk_rows=args.cka_chunk_rows,
             max_new_tokens=args.max_new_tokens,
+            max_generated_words=args.max_generated_words,
             batch_size=args.batch_size,
             chunk_size=args.chunk_size,
             local_only=local_only,
@@ -1281,12 +1322,19 @@ def main() -> None:
                 raise SystemExit(
                     f"--max_new_tokens must match {CONFIG_NAME} ({cfg['max_new_tokens']})."
                 )
+            cfg_mgw = _effective_max_generated_words(cfg)
+            if cfg_mgw != args.max_generated_words:
+                raise SystemExit(
+                    f"--max_generated_words must match {CONFIG_NAME} ({cfg_mgw!r}; "
+                    f"legacy key max_words is accepted when reading config)."
+                )
             run_stage_generate(
                 out_dir=out_dir,
                 args_models=args.models,
                 excerpt_rows=excerpt_rows,
                 instruction=cfg["instruction"],
                 max_new_tokens=cfg["max_new_tokens"],
+                max_generated_words=cfg_mgw,
                 device=device,
                 local_only=local_only,
                 force_redo=force_redo,
