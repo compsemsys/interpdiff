@@ -46,6 +46,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import time
 from datetime import datetime
 from typing import Any
@@ -110,7 +111,65 @@ def _instruction_placeholders(s: str) -> set[str]:
     return set(re.findall(r"\{(\w+)\}", s))
 
 
-_ALLOWED_INSTRUCTION_KEYS = frozenset({"excerpt", "title"})
+_ALLOWED_INSTRUCTION_KEYS = frozenset({"excerpt", "title", "word_count"})
+_DEFAULT_INSTRUCTION = "Explain the following: {title}"
+WORD_COUNT_INSTRUCTION = "In {word_count} words, explain the following: {title}"
+
+
+def resolve_instruction_args(
+    *,
+    instruction: str,
+    max_generated_words: int | None,
+    word_count_prompt: bool,
+) -> tuple[str, bool]:
+    """Return the effective instruction template and word_count_prompt flag."""
+    if word_count_prompt:
+        if max_generated_words is None:
+            raise ValueError("--word_count_prompt requires --max_generated_words")
+        instruction = WORD_COUNT_INSTRUCTION
+    keys = _instruction_placeholders(instruction)
+    bad = keys - _ALLOWED_INSTRUCTION_KEYS
+    if bad:
+        allowed = ", ".join(sorted(_ALLOWED_INSTRUCTION_KEYS))
+        raise ValueError(
+            f"--instruction has unknown placeholder(s): {bad}; allowed: {allowed}"
+        )
+    if not keys & {"excerpt", "title"}:
+        raise ValueError("--instruction must contain at least one of {excerpt}, {title}")
+    if "word_count" in keys and max_generated_words is None:
+        raise ValueError(
+            "--instruction uses {word_count} but --max_generated_words is not set"
+        )
+    return instruction, word_count_prompt
+
+
+def _quote_cmd_arg(arg: str) -> str:
+    """Quote one argv token for Windows cmd.exe (not PowerShell)."""
+    if arg == "":
+        return '""'
+    if any(c in arg for c in " \t"):
+        return '"' + arg.replace('"', '""') + '"'
+    return arg
+
+
+def format_cli_command(argv: list[str] | None = None) -> str:
+    """Join argv into a single copy-pasteable Windows cmd.exe one-liner."""
+    parts = sys.argv if argv is None else argv
+    return " ".join(_quote_cmd_arg(p) for p in parts)
+
+
+def _existing_run_cli(out_dir: str) -> tuple[str | None, list[str] | None]:
+    path = os.path.join(out_dir, "run_info.json")
+    if not os.path.isfile(path):
+        return None, None
+    prev = _load_json(path)
+    cli_argv = prev.get("cli_argv")
+    if isinstance(cli_argv, list) and all(isinstance(x, str) for x in cli_argv):
+        return prev.get("cli_command") or format_cli_command(cli_argv), cli_argv
+    cli_command = prev.get("cli_command")
+    if isinstance(cli_command, str):
+        return cli_command, None
+    return None, None
 
 
 def _pairwise_cka_word_files(
@@ -221,6 +280,7 @@ def _cfg_matches_init(
     words: int,
     models: list[str],
     instruction: str,
+    word_count_prompt: bool,
     skip_generate: bool,
     skip_cka: bool,
     cka_chunk_rows: int,
@@ -236,6 +296,7 @@ def _cfg_matches_init(
         and cfg.get("words") == words
         and cfg.get("models") == _abspaths(models)
         and cfg.get("instruction") == instruction
+        and _effective_word_count_prompt(cfg) == word_count_prompt
         and cfg.get("skip_generate") == skip_generate
         and cfg.get("skip_cka") == skip_cka
         and cfg.get("cka_chunk_rows") == cka_chunk_rows
@@ -545,6 +606,7 @@ def run_stage_init(
     models: list[str],
     instruction: str,
     instruction_keys: list[str],
+    word_count_prompt: bool,
     skip_generate: bool,
     skip_cka: bool,
     cka_chunk_rows: int,
@@ -556,6 +618,8 @@ def run_stage_init(
     device: str,
     aggregation_level: str,
     force_redo: bool,
+    cli_command: str | None = None,
+    cli_argv: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     used_path = os.path.join(out_dir, "corpus_excerpts_used.jsonl")
     cfg_path = os.path.join(out_dir, CONFIG_NAME)
@@ -571,6 +635,7 @@ def run_stage_init(
             words=words,
             models=models,
             instruction=instruction,
+            word_count_prompt=word_count_prompt,
             skip_generate=skip_generate,
             skip_cka=skip_cka,
             cka_chunk_rows=cka_chunk_rows,
@@ -603,6 +668,7 @@ def run_stage_init(
         "models": _abspaths(models),
         "instruction": instruction,
         "instruction_placeholders": instruction_keys,
+        "word_count_prompt": word_count_prompt,
         "skip_generate": skip_generate,
         "skip_cka": skip_cka,
         "cka_chunk_rows": cka_chunk_rows,
@@ -639,12 +705,22 @@ def run_stage_init(
         "max_generated_words": max_generated_words,
         "instruction": instruction,
         "instruction_placeholders": instruction_keys,
+        "word_count_prompt": word_count_prompt,
         "num_docs": len(excerpt_rows),
         "aggregation_level": aggregation_level,
         "artifacts": artifacts,
         "timings_sec": {"generation_total": 0.0, "embedding_total": 0.0, "models": {}},
         "cka": [],
     }
+    prev_cli_command, prev_cli_argv = _existing_run_cli(out_dir)
+    if prev_cli_command and not force_redo:
+        run_info["cli_command"] = prev_cli_command
+        if prev_cli_argv is not None:
+            run_info["cli_argv"] = prev_cli_argv
+    elif cli_command:
+        run_info["cli_command"] = cli_command
+        if cli_argv is not None:
+            run_info["cli_argv"] = cli_argv
     return excerpt_rows, run_info
 
 
@@ -681,6 +757,7 @@ def run_stage_generate(
                 instruction,
                 excerpt=row["text"],
                 title=str(row.get("title") or ""),
+                word_count=max_generated_words,
             )
             resp_text = generate_completion(
                 tok, gen, prompt, device, max_new_tokens, max_generated_words=max_generated_words
@@ -1033,7 +1110,7 @@ def _merge_run_info(out_dir: str, run_info: dict[str, Any]) -> None:
         prev = _load_json(path)
         prev.setdefault("timings_sec", {}).setdefault("models", {})
         prev["timings_sec"]["models"].update(run_info.get("timings_sec", {}).get("models", {}))
-        for k in ("artifacts", "cka", "num_docs"):
+        for k in ("artifacts", "cka", "num_docs", "cli_command", "cli_argv"):
             if k in run_info:
                 prev[k] = run_info[k]
         prev["last_stage_update"] = datetime.now().isoformat()
@@ -1108,8 +1185,16 @@ def main() -> None:
     )
     p.add_argument(
         "--instruction",
-        default="Explain the following: {title}",
-        help="Prompt template; {title} and/or {excerpt}",
+        default=_DEFAULT_INSTRUCTION,
+        help="Prompt template; {title}, {excerpt}, and/or {word_count}",
+    )
+    p.add_argument(
+        "--word_count_prompt",
+        action="store_true",
+        help=(
+            "Use the preset instruction "
+            f"{WORD_COUNT_INSTRUCTION!r}; requires --max_generated_words"
+        ),
     )
     p.add_argument("--batch_size", type=int, default=12)
     p.add_argument("--chunk_size", type=int, default=1024)
@@ -1167,12 +1252,15 @@ def main() -> None:
             p.error(str(e))
     cka_doc_ids_parsed = parse_doc_ids_arg(args.cka_doc_ids)
 
-    keys = _instruction_placeholders(args.instruction)
-    bad = keys - _ALLOWED_INSTRUCTION_KEYS
-    if bad:
-        p.error(f"--instruction has unknown placeholder(s): {bad}; allowed: excerpt, title")
-    if not keys:
-        p.error("--instruction must contain at least one of {excerpt}, {title}")
+    try:
+        instruction, word_count_prompt = resolve_instruction_args(
+            instruction=args.instruction,
+            max_generated_words=args.max_generated_words,
+            word_count_prompt=args.word_count_prompt,
+        )
+    except ValueError as e:
+        p.error(str(e))
+    keys = _instruction_placeholders(instruction)
     if args.max_generated_words is not None and args.max_generated_words < 1:
         p.error("--max_generated_words must be >= 1 when set")
 
@@ -1190,6 +1278,8 @@ def main() -> None:
             p.error("--out_dir is required unless --stage init")
         out_dir = args.out_dir
     out_dir = os.path.abspath(out_dir)
+    cli_command = format_cli_command()
+    cli_argv = list(sys.argv)
 
     if args.stage == "all":
         # Single-process full run for convenience and simple reproducibility.
@@ -1199,8 +1289,9 @@ def main() -> None:
             corpus=args.corpus,
             words=args.words,
             models=args.models,
-            instruction=args.instruction,
+            instruction=instruction,
             instruction_keys=sorted(keys),
+            word_count_prompt=word_count_prompt,
             skip_generate=args.skip_generate,
             skip_cka=args.skip_cka,
             cka_chunk_rows=args.cka_chunk_rows,
@@ -1212,6 +1303,8 @@ def main() -> None:
             device=device,
             aggregation_level=args.aggregation_level,
             force_redo=force_redo,
+            cli_command=cli_command,
+            cli_argv=cli_argv,
         )
         response_by_model: dict[str, list[dict[str, Any]]] = {}
         if not args.skip_generate:
@@ -1219,7 +1312,7 @@ def main() -> None:
                 out_dir=out_dir,
                 args_models=args.models,
                 excerpt_rows=excerpt_rows,
-                instruction=args.instruction,
+                instruction=instruction,
                 max_new_tokens=args.max_new_tokens,
                 max_generated_words=args.max_generated_words,
                 device=device,
@@ -1284,8 +1377,9 @@ def main() -> None:
             corpus=args.corpus,
             words=args.words,
             models=args.models,
-            instruction=args.instruction,
+            instruction=instruction,
             instruction_keys=sorted(keys),
+            word_count_prompt=word_count_prompt,
             skip_generate=args.skip_generate,
             skip_cka=args.skip_cka,
             cka_chunk_rows=args.cka_chunk_rows,
@@ -1297,14 +1391,21 @@ def main() -> None:
             device=device,
             aggregation_level=args.aggregation_level,
             force_redo=force_redo,
+            cli_command=cli_command,
+            cli_argv=cli_argv,
         )
     else:
         cfg = _load_pipeline_config(out_dir)
         _verify_models_match(cfg["models"], args.models)
-        if args.instruction != cfg["instruction"]:
+        if instruction != cfg["instruction"]:
             raise SystemExit(
                 f"--instruction must match {CONFIG_NAME} exactly.\n"
-                f"  config: {cfg['instruction']!r}\n  cli:    {args.instruction!r}"
+                f"  config: {cfg['instruction']!r}\n  cli:    {instruction!r}"
+            )
+        if word_count_prompt != _effective_word_count_prompt(cfg):
+            raise SystemExit(
+                f"--word_count_prompt must match {CONFIG_NAME} "
+                f"(word_count_prompt={_effective_word_count_prompt(cfg)!r})."
             )
         if local_only != cfg.get("local_only", True):
             raise SystemExit(

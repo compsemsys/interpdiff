@@ -75,9 +75,10 @@ def build_explain_prompt(
     *,
     excerpt: str = "",
     title: str = "",
+    word_count: int | str | None = None,
 ) -> str:
-    """Format ``instruction`` with ``{excerpt}`` and/or ``{title}`` (unused keys are ok)."""
-    body = instruction.format(excerpt=excerpt, title=title)
+    """Format ``instruction`` with ``{excerpt}``, ``{title}``, and/or ``{word_count}``."""
+    body = instruction.format(excerpt=excerpt, title=title, word_count=word_count)
     if getattr(tokenizer, "chat_template", None):
         # Respect model-specific chat formatting when available.
         messages = [{"role": "user", "content": body}]

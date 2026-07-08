@@ -2,6 +2,8 @@
 
 This document describes how to run the **excerpt → embeddings → (optional) generation → response embeddings → linear CKA** pipeline, including **pausing between stages** and **resuming** without redoing finished work.
 
+**Exhaustive flag list (all scripts, defaults, optional flags):** [CLI_REFERENCE.md](CLI_REFERENCE.md)
+
 ## Entry points
 
 | Script | Role |
@@ -71,7 +73,7 @@ $RC = "F:\code\Independent Study\run_categorized_corpus.py"
 
 You can stop between lines and resume days later; see **Resume and overwrite** below.
 
-**Important:** After `init`, every later stage must use CLI flags that **match** `pipeline_config.json` exactly for: `--instruction`, `--batch_size`, `--chunk_size`, `--aggregation_level`, `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, and local-only vs `--allow_remote`. For the **`generate`** stage only, `--max_new_tokens` and `--max_generated_words` must each match the effective saved values (see **Legacy `max_words` in config** under Troubleshooting). If you need to change those, redo **`init`** with `--overwrite` (or a new `--out_dir`).
+**Important:** After `init`, every later stage must use CLI flags that **match** `pipeline_config.json` exactly for: `--instruction`, `--word_count_prompt`, `--batch_size`, `--chunk_size`, `--aggregation_level`, `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, and local-only vs `--allow_remote`. For the **`generate`** stage only, `--max_new_tokens` and `--max_generated_words` must each match the effective saved values (see **Legacy `max_words` in config** under Troubleshooting). If you need to change those, redo **`init`** with `--overwrite` (or a new `--out_dir`).
 
 ## Resume and overwrite
 
@@ -87,13 +89,40 @@ You can stop between lines and resume days later; see **Resume and overwrite** b
 
 - **`pipeline_config.json`** — Frozen settings from `init` (corpus path, excerpt `--words`, model paths, instruction template, generation caps `max_new_tokens` / optional `max_generated_words`, batch/chunk sizes, `skip_generate`, `skip_cka`, etc.). Staged runs load this and **validate** your CLI against it.
 - **`pipeline_state.json`** — List of completed stage names (`init`, `generate`, …).
-- **`run_info.json`** — Timings, artifact paths, CKA summary records (merged across stages).
+- **`run_info.json`** — Timings, artifact paths, CKA summary records (merged across stages). Includes **`cli_command`** (Windows **cmd.exe** one-liner) and **`cli_argv`** (raw argv list) from the `init` invocation.
 
 ## Prompt template (`--instruction`)
 
-Must contain at least one of `{title}` or `{excerpt}`. Only these placeholders are allowed.
+Must contain at least one of `{title}` or `{excerpt}`. Allowed placeholders: `{title}`, `{excerpt}`, `{word_count}`.
 
 Default: `Explain the following: {title}`
+
+### Word-count preset (`--word_count_prompt`)
+
+Use `--word_count_prompt` to switch to the preset instruction:
+
+`In {word_count} words, explain the following: {title}`
+
+This requires `--max_generated_words` (the same value is injected into `{word_count}` in the prompt and used as the hard generation cap). Example:
+
+```powershell
+.\.venv313\Scripts\python.exe .\run_categorized_corpus.py `
+  --corpus ".\data\wiki_tree_corpus_for_cka.jsonl" `
+  --out_dir ".\outputs\my_run_wordcount" `
+  --models "F:\path\to\gemma-3-1b-it" "F:\path\to\Qwen3.5-0.8B" `
+  --aggregation_level "document" `
+  --words 200 `
+  --max_new_tokens 1500 `
+  --max_generated_words 200 `
+  --word_count_prompt `
+  --batch_size 4 `
+  --chunk_size 768 `
+  --stage all
+```
+
+You can also put `{word_count}` in a custom `--instruction` (without the preset flag); `--max_generated_words` is still required when `{word_count}` appears.
+
+The `word_count_prompt` boolean is stored in `pipeline_config.json` and must match on resumed staged runs.
 
 ## Generation limits (`generate` stage only)
 
@@ -108,19 +137,24 @@ Both values are recorded at **`init`** and must be repeated exactly on **`--stag
 
 ## Common CLI options
 
+See [CLI_REFERENCE.md](CLI_REFERENCE.md) for the complete table including `--stage`, `--resume`, `--overwrite`, and corpus-building scripts. Summary of the main pipeline flags:
+
 | Option | Notes |
 |--------|--------|
 | `--corpus` | Required for every invocation (path must stay consistent with config after `init`). |
 | `--out_dir` | Required after `init`; optional on `init` (auto `outputs/categorized_*`). |
+| `--stage` | `all` (default), `init`, `generate`, `embed_excerpts`, `embed_responses`, or `cka`. |
 | `--models` | One or more **local** checkpoint directories; order and paths must match `pipeline_config.json` when resuming. |
 | `--words` | First N words per doc used as excerpt (stored at init). |
 | `--instruction` | Prompt template; see above. |
+| `--word_count_prompt` | Use the word-count preset instruction; requires `--max_generated_words`. Stored at init. |
 | `--max_new_tokens` | **Generate** stage: max new tokens per completion; must match config for `--stage generate`. |
-| `--max_generated_words` | **Generate** stage only (optional): max words in the decoded **generated reply**; see **Generation limits**. Must match config for `--stage generate`. |
+| `--max_generated_words` | **Generate** stage only (optional): max words in the decoded **generated reply**; see **Generation limits**. Must match config for `--stage generate`. Required with `--word_count_prompt` or `{word_count}` in instruction. |
 | `--batch_size`, `--chunk_size` | Embedding batching (stored at init). |
 | `--aggregation_level` | Aggregation output from token embeddings: `word` (default), `document`, or `both` (stored at init). CKA runs on the available aggregation output(s). |
 | `--skip_generate` | Excerpt-only pipeline: no `responses/` generation; response embedding and response CKA pairs are omitted. |
 | `--skip_cka` | Skip writing `cka/` (stored at init; staged `cka` stage reads this from config). |
+| `--resume` / `--no_resume` / `--overwrite` | Control skipping vs redoing existing stage outputs. |
 | `--cka_chunk_rows` | Chunk size for chunked linear CKA (default 4096). |
 | `--cka_filter` | **CKA stage only:** repeat `KEY=VALUE`; keep word rows whose metadata matches **all** filters (equality on string form, except `doc_id` compared as int). Typical key: `category` (same string as in corpus JSONL). |
 | `--cka_doc_ids` | **CKA stage only:** comma-separated `doc_id` values; combined with filters by intersection. |
@@ -182,7 +216,7 @@ Exact filenames follow `sanitize_model_slug()` (derived from the model directory
 
 ## Wikipedia helper script
 
-`scripts/run_wiki_tree_cka_pipeline.py` builds `wiki_tree_corpus_for_cka`-style JSONL from `data/wiki_tree_random.jsonl` and then runs **`run_categorized_corpus.py` with `--stage all`** (full pipeline in one subprocess). It forwards `--max-new-tokens` and optional **`--max-generated-words`** (cap on words in the **generated** reply only). It does **not** expose `--stage`; for multi-day staged runs, call `run_categorized_corpus.py` yourself with the `--corpus-out` path from that script (or your own JSONL).
+`scripts/run_wiki_tree_cka_pipeline.py` builds `wiki_tree_corpus_for_cka`-style JSONL from `data/wiki_tree_random.jsonl` and then runs **`run_categorized_corpus.py` with `--stage all`** (full pipeline in one subprocess). It forwards `--max-new-tokens`, optional **`--max-generated-words`**, **`--word-count-prompt`**, and **`--instruction`**. It does **not** expose `--stage`, `--resume`, `--overwrite`, `--cka_filter`, or `--allow_remote`; for multi-day staged runs, call `run_categorized_corpus.py` yourself with the `--corpus-out` path from that script (or your own JSONL). See [CLI_REFERENCE.md](CLI_REFERENCE.md) for all wrapper flags and defaults.
 
 ## Ad-hoc CKA on existing `.npy` files
 
@@ -192,4 +226,5 @@ For manual pairwise checks outside the pipeline directory layout, see `cka_word_
 
 - **`--models must match pipeline_config.json`** — Use the same absolute paths (or the same paths as stored at init). Re-init with a new `--out_dir` if you switched checkpoints intentionally.
 - **`--instruction must match`** — Edit only by re-running `init` with `--overwrite` or a new output directory.
+- **`--word_count_prompt must match`** — Same as instruction; re-init to switch between default and word-count preset prompts.
 - **CKA needs at least two models** — With a single model, the CKA stage prints a skip message and does not write pairwise matrices.

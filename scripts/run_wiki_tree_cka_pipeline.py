@@ -129,7 +129,13 @@ def main() -> None:
     p.add_argument(
         "--instruction",
         default="Explain the following: {title}",
-        help="Forwarded to run_categorized_corpus (supports {title}, {excerpt})",
+        help="Forwarded to run_categorized_corpus (supports {title}, {excerpt}, {word_count})",
+    )
+    p.add_argument(
+        "--word-count-prompt",
+        action="store_true",
+        dest="word_count_prompt",
+        help="Forwarded to run_categorized_corpus --word_count_prompt (requires --max-generated-words)",
     )
     p.add_argument(
         "--skip-generate",
@@ -182,6 +188,8 @@ def main() -> None:
     ]
     if args.max_generated_words is not None:
         ts_cmd += ["--max_generated_words", str(args.max_generated_words)]
+    if args.word_count_prompt:
+        ts_cmd.append("--word_count_prompt")
     if args.out_dir:
         ts_cmd += ["--out_dir", str(args.out_dir)]
     if args.skip_generate:
