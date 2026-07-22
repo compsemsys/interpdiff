@@ -2,7 +2,7 @@
 
 This project gets wiki abstracts, runs them through LLMs to get token embeddings, mean-pools into document embeddings, then analyzes using CKA.
 
-See the latest findings [outputs/my_run6/cka/document_cka_by_category.md](outputs/my_run6/cka/document_cka_by_category.md)
+See the latest findings [outputs/my_run11/cka/document_cka_by_category.md](outputs/my_run11/cka/document_cka_by_category.md)
 
 There is a processing pipeline for those steps:
 
@@ -84,3 +84,5 @@ $RC = ".\run_categorized_corpus.py"
 ```
 
 Omit `--word_count_prompt` for the default prompt (`Explain the following: {title}`). Omit `--max_generated_words` if you only want the `--max_new_tokens` cap on generation.
+
+Add `--summarize` to run an **additional** summarization task in the same pipeline (`Summarize the following in {word_count} words: {excerpt}`). It produces a third `summary` segment alongside `excerpt`/`response`, so CKA compares the full `model × segment` grid. The summary word target defaults to `--max_generated_words`; override it with `--summarize_words N` (e.g. `--summarize --summarize_words 50`). Or pass `--match_abstract_length` instead of a fixed word cap so each response/summary targets that excerpt's length. See [PIPELINE_GUIDE.md](PIPELINE_GUIDE.md#additive-summarize-task---summarize).

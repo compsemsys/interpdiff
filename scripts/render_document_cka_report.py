@@ -134,16 +134,54 @@ def _category_by_keyword(categories: list[str], keyword: str) -> str | None:
     return None
 
 
+_SEGMENT_ORDER = {"excerpt": 0, "response": 1, "summary": 2}
+
+
+def _sort_segments(segments: list[str]) -> list[str]:
+    return sorted(segments, key=lambda s: (_SEGMENT_ORDER.get(s, 99), s))
+
+
+def _summary_row_specs(
+    models: list[str], segments: list[str]
+) -> list[tuple[str, str, str, str]]:
+    """Highlight rows: within-model different segments, then cross-model same segment."""
+    segs = _sort_segments(segments)
+    specs: list[tuple[str, str, str, str]] = []
+    for m in models:
+        for i, sa in enumerate(segs):
+            for sb in segs[i + 1 :]:
+                specs.append((m, m, sa, sb))
+    if len(models) == 2:
+        m0, m1 = models[0], models[1]
+        for s in segs:
+            specs.append((m0, m1, s, s))
+    return specs
+
+
+def _focus_bucket_rows(
+    focused: dict[str, object], bucket: str
+) -> list[dict[str, object]]:
+    """Read a focused bucket; accept legacy within-model key name."""
+    rows = focused.get(bucket)
+    if not rows and bucket == "within_model_different_segments":
+        rows = focused.get("within_model_excerpt_vs_response")
+    if not isinstance(rows, list):
+        return []
+    return [r for r in rows if isinstance(r, dict)]
+
+
 def _summary_table_markdown(
     models: list[str],
     results: list[dict[str, object]],
     aggregated: list[dict[str, object]],
     categories: list[str],
+    segments: list[str],
 ) -> str:
     if len(models) != 2:
         return f"_No summary table: need exactly two models; found {len(models)}._"
+    if not segments:
+        return "_No summary table: no segments found in the JSON._"
 
-    m0, m1 = models[0], models[1]
     n_pool = _first_n_rows_aggregated(aggregated)
     cat_science = _category_by_keyword(categories, "science")
     cat_culture = _category_by_keyword(categories, "culture")
@@ -154,14 +192,8 @@ def _summary_table_markdown(
     h_s = f"Science CKA ({n_s})" if n_s is not None and cat_science else "Science CKA"
     h_c = f"Culture CKA ({n_c})" if n_c is not None and cat_culture else "Culture CKA"
 
-    row_specs: list[tuple[str, str, str, str]] = [
-        (m0, m0, "excerpt", "response"),
-        (m1, m1, "excerpt", "response"),
-        (m0, m1, "excerpt", "excerpt"),
-        (m0, m1, "response", "response"),
-    ]
     out_rows: list[list[str]] = []
-    for a, b, sa, sb in row_specs:
+    for a, b, sa, sb in _summary_row_specs(models, segments):
         ps = _fmt(_cka_value_for_row(aggregated, None, a, b, sa, sb))
         if cat_science:
             ss = _fmt(_cka_value_for_row(results, cat_science, a, b, sa, sb))
@@ -185,15 +217,20 @@ def _summary_table_markdown(
         ["A", "B", h_pool, h_s, h_c],
         out_rows,
     )
+    seg_note = ", ".join(f"**{s}**" for s in _sort_segments(segments))
     if cat_science or cat_culture:
         note = (
-            f"_A / B: model and **excerpt** vs **response** for each side of the comparison. "
+            f"_A / B: model and segment for each side "
+            f"(within-model different segments, then cross-model same segment). "
+            f"Segments: {seg_note}. "
             f"Science column: `{cat_science}`; "
             f"Culture column: `{cat_culture}` (matched from category strings in the JSON)._"
         )
     else:
         note = (
-            "_A / B: model and **excerpt** vs **response** for each side. "
+            f"_A / B: model and segment for each side "
+            f"(within-model different segments, then cross-model same segment). "
+            f"Segments: {seg_note}. "
             "No column matched the keywords *science* or *culture* in your category names._"
         )
     return lines + "\n" + note
@@ -299,7 +336,9 @@ def main() -> None:
     lines.append("## Summary")
     lines.append("")
     lines.append(
-        _summary_table_markdown(list(models), results, aggregated, list(categories))
+        _summary_table_markdown(
+            list(models), results, aggregated, list(categories), list(segments)
+        )
     )
     lines.append("")
     lines.append(f"- Source: `{in_path}`")
@@ -336,15 +375,17 @@ def main() -> None:
     lines.append("")
 
     agg_focused = data.get("aggregated_focused", {}) or {}
+    if not isinstance(agg_focused, dict):
+        agg_focused = {}
     for section_title, bucket in (
         ("Cross model, same segment", "cross_model_same_segment"),
-        ("Within model, excerpt vs response", "within_model_excerpt_vs_response"),
+        ("Within model, different segments", "within_model_different_segments"),
     ):
         lines.append(f"### {section_title}")
         lines.append("")
         lines.append(
             _focus_bucket_markdown(
-                (agg_focused.get(bucket) or []),
+                _focus_bucket_rows(agg_focused, bucket),
                 show_category=False,
             )
         )
@@ -359,7 +400,7 @@ def main() -> None:
         )
         lines.append("")
     else:
-        axis = [(m, s) for m in models for s in segments]
+        axis = [(m, s) for m in models for s in _sort_segments(list(segments))]
         lines.append(_cka_matrix_markdown(pool_key, axis, lookup_pooled))
         lines.append("")
 
@@ -367,15 +408,17 @@ def main() -> None:
     lines.append("")
 
     focused = data.get("focused", {}) or {}
+    if not isinstance(focused, dict):
+        focused = {}
     for section_title, bucket in (
         ("Cross model, same segment", "cross_model_same_segment"),
-        ("Within model, excerpt vs response", "within_model_excerpt_vs_response"),
+        ("Within model, different segments", "within_model_different_segments"),
     ):
         lines.append(f"### {section_title}")
         lines.append("")
         lines.append(
             _focus_bucket_markdown(
-                (focused.get(bucket) or []),
+                _focus_bucket_rows(focused, bucket),
                 show_category=True,
             )
         )
@@ -383,7 +426,7 @@ def main() -> None:
 
     lines.append("## Per-Category Matrices")
     lines.append("")
-    axis = [(m, s) for m in models for s in segments]
+    axis = [(m, s) for m in models for s in _sort_segments(list(segments))]
     for cat in categories:
         lines.append(f"### {cat}")
         lines.append("")

@@ -5,13 +5,17 @@ Stages (use ``--stage`` to run one at a time; later stages require the same
 ``--out_dir`` and compatible ``--models`` as recorded in ``pipeline_config.json``):
 
 1. **init** — excerpts JSONL, corpus copy, ``pipeline_config.json``, ``pipeline_state.json``.
-2. **generate** — causal LM responses per model (unless ``skip_generate`` in config).
-   Optional ``--max_generated_words`` (``generate`` only) early-stops once the decoded **model completion**
-   reaches N whitespace-delimited words (still capped by ``--max_new_tokens`` and EOS);
-   hyphenated forms count as one word. Does not cap excerpt ``--words`` or embeddings.
+2. **generate** — causal LM outputs per model for each configured generation task
+   (the explain-style ``response`` task, plus a ``summary`` task when ``--summarize`` is set),
+   unless ``skip_generate`` in config. Each task has its own word cap (``--max_generated_words``
+   for ``response``, ``--summarize_words`` for ``summary``), or per-excerpt caps when
+   ``--match_abstract_length`` is set; ``--max_new_tokens`` is a shared ceiling.
+   Word caps early-stop once the decoded **model completion** reaches N whitespace-delimited words
+   (still capped by ``--max_new_tokens`` and EOS); hyphenated forms count as one word.
 3. **embed_excerpts** — token + aggregated npy under ``excerpts/<slug>/``.
-4. **embed_responses** — token + aggregated npy under ``responses/<slug>/`` (needs generation).
-5. **cka** — pairwise linear CKA under ``cka/``.
+4. **embed_responses** — token + aggregated npy for each generation task under its dir
+   (``responses/<slug>/``, ``summaries/<slug>/``, …), tagged with the task's segment label.
+5. **cka** — pairwise linear CKA under ``cka/`` across all model × segment pairs.
 
 Default ``--stage all`` runs the full pipeline in one process. With ``--resume``
 (default: on for single stages), existing outputs are skipped unless ``--overwrite``.
@@ -67,6 +71,7 @@ from local_llm_utils import (
     build_explain_prompt,
     generate_completion,
     load_causal_lm,
+    response_word_count,
     sanitize_model_slug,
 )
 from token_embed_utils import pick_device
@@ -114,6 +119,32 @@ def _instruction_placeholders(s: str) -> set[str]:
 _ALLOWED_INSTRUCTION_KEYS = frozenset({"excerpt", "title", "word_count"})
 _DEFAULT_INSTRUCTION = "Explain the following: {title}"
 WORD_COUNT_INSTRUCTION = "In {word_count} words, explain the following: {title}"
+# Preset for the additional summarization task (segment "summary").
+SUMMARIZE_INSTRUCTION = "Summarize the following in {word_count} words: {excerpt}"
+# Segment label / output subdirectory for the primary explain-style generation task.
+RESPONSE_SEGMENT = "response"
+RESPONSE_SUBDIR = "responses"
+SUMMARY_SEGMENT = "summary"
+SUMMARY_SUBDIR = "summaries"
+
+
+def _validate_instruction_template(
+    instruction: str,
+    *,
+    flag: str,
+    word_count: int | None,
+    match_abstract_length: bool = False,
+) -> None:
+    """Shared placeholder validation for any generation-task instruction template."""
+    keys = _instruction_placeholders(instruction)
+    bad = keys - _ALLOWED_INSTRUCTION_KEYS
+    if bad:
+        allowed = ", ".join(sorted(_ALLOWED_INSTRUCTION_KEYS))
+        raise ValueError(f"{flag} has unknown placeholder(s): {bad}; allowed: {allowed}")
+    if not keys & {"excerpt", "title"}:
+        raise ValueError(f"{flag} must contain at least one of {{excerpt}}, {{title}}")
+    if "word_count" in keys and word_count is None and not match_abstract_length:
+        raise ValueError(f"{flag} uses {{word_count}} but no word count is set")
 
 
 def resolve_instruction_args(
@@ -121,11 +152,14 @@ def resolve_instruction_args(
     instruction: str,
     max_generated_words: int | None,
     word_count_prompt: bool,
+    match_abstract_length: bool = False,
 ) -> tuple[str, bool]:
     """Return the effective instruction template and word_count_prompt flag."""
     if word_count_prompt:
-        if max_generated_words is None:
-            raise ValueError("--word_count_prompt requires --max_generated_words")
+        if max_generated_words is None and not match_abstract_length:
+            raise ValueError(
+                "--word_count_prompt requires --max_generated_words or --match_abstract_length"
+            )
         instruction = WORD_COUNT_INSTRUCTION
     keys = _instruction_placeholders(instruction)
     bad = keys - _ALLOWED_INSTRUCTION_KEYS
@@ -136,11 +170,79 @@ def resolve_instruction_args(
         )
     if not keys & {"excerpt", "title"}:
         raise ValueError("--instruction must contain at least one of {excerpt}, {title}")
-    if "word_count" in keys and max_generated_words is None:
+    if "word_count" in keys and max_generated_words is None and not match_abstract_length:
         raise ValueError(
-            "--instruction uses {word_count} but --max_generated_words is not set"
+            "--instruction uses {word_count} but --max_generated_words is not set "
+            "(or pass --match_abstract_length)"
         )
     return instruction, word_count_prompt
+
+
+def build_generation_tasks(
+    *,
+    instruction: str,
+    max_generated_words: int | None,
+    word_count_prompt: bool,
+    summarize: bool = False,
+    summarize_instruction: str = SUMMARIZE_INSTRUCTION,
+    summarize_words: int | None = None,
+    match_abstract_length: bool = False,
+) -> list[dict[str, Any]]:
+    """Build the ordered list of generation tasks frozen into ``pipeline_config.json``.
+
+    The first task is always the primary explain-style ``response`` task (unchanged
+    behavior). When ``summarize`` is set, an additional ``summary`` task is appended.
+    Each task is self-describing: ``name`` doubles as the CKA segment label and
+    ``subdir`` is where its ``responses.jsonl`` / embeddings live under ``out_dir``.
+    ``summarize_words`` defaults to ``max_generated_words`` (the primary task's cap).
+    When ``match_abstract_length`` is set, task ``max_generated_words`` values are
+    frozen as ``None`` and generation uses each excerpt's word count instead.
+    """
+    tasks: list[dict[str, Any]] = [
+        {
+            "name": RESPONSE_SEGMENT,
+            "subdir": RESPONSE_SUBDIR,
+            "instruction": instruction,
+            "max_generated_words": None if match_abstract_length else max_generated_words,
+            "word_count_prompt": bool(word_count_prompt),
+        }
+    ]
+    if summarize:
+        if match_abstract_length:
+            sw = None
+        else:
+            sw = summarize_words if summarize_words is not None else max_generated_words
+        _validate_instruction_template(
+            summarize_instruction,
+            flag="--summarize_instruction",
+            word_count=sw,
+            match_abstract_length=match_abstract_length,
+        )
+        if sw is not None and sw < 1:
+            raise ValueError("summarize word count must be >= 1 when set")
+        tasks.append(
+            {
+                "name": SUMMARY_SEGMENT,
+                "subdir": SUMMARY_SUBDIR,
+                "instruction": summarize_instruction,
+                "max_generated_words": sw,
+                "word_count_prompt": False,
+            }
+        )
+    return tasks
+
+
+def _effective_task_max_generated_words(
+    task: dict[str, Any],
+    excerpt_text: str,
+    *,
+    match_abstract_length: bool,
+) -> int | None:
+    """Resolve the word target/cap for one doc under one generation task."""
+    if match_abstract_length:
+        return response_word_count(excerpt_text)
+    mgw = task.get("max_generated_words")
+    return int(mgw) if mgw is not None else None
 
 
 def _quote_cmd_arg(arg: str) -> str:
@@ -239,6 +341,37 @@ def _effective_max_generated_words(cfg: dict[str, Any]) -> int | None:
     return cfg.get("max_words")
 
 
+def _effective_match_abstract_length(cfg: dict[str, Any]) -> bool:
+    """Whether generation word caps match each excerpt's word count."""
+    return bool(cfg.get("match_abstract_length", False))
+
+
+def _effective_word_count_prompt(cfg: dict[str, Any]) -> bool:
+    """Whether the primary response task used the word-count preset instruction."""
+    return bool(cfg.get("word_count_prompt", False))
+
+
+def _effective_generation_tasks(cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the frozen generation-task list, deriving one for legacy configs.
+
+    Configs written before the task-list schema only carry the single-response fields
+    (``instruction`` / ``word_count_prompt`` / ``max_generated_words``); those resume as
+    a one-element list describing the ``response`` task so old runs keep working.
+    """
+    tasks = cfg.get("generation_tasks")
+    if isinstance(tasks, list) and tasks:
+        return tasks
+    return [
+        {
+            "name": RESPONSE_SEGMENT,
+            "subdir": RESPONSE_SUBDIR,
+            "instruction": cfg.get("instruction", _DEFAULT_INSTRUCTION),
+            "max_generated_words": _effective_max_generated_words(cfg),
+            "word_count_prompt": _effective_word_count_prompt(cfg),
+        }
+    ]
+
+
 def _load_pipeline_state(out_dir: str) -> dict[str, Any]:
     p = os.path.join(out_dir, STATE_NAME)
     if not os.path.isfile(p):
@@ -286,10 +419,12 @@ def _cfg_matches_init(
     cka_chunk_rows: int,
     max_new_tokens: int,
     max_generated_words: int | None,
+    match_abstract_length: bool,
     batch_size: int,
     chunk_size: int,
     local_only: bool,
     aggregation_level: str,
+    generation_tasks: list[dict[str, Any]],
 ) -> bool:
     return (
         cfg.get("corpus") == os.path.abspath(corpus)
@@ -297,11 +432,13 @@ def _cfg_matches_init(
         and cfg.get("models") == _abspaths(models)
         and cfg.get("instruction") == instruction
         and _effective_word_count_prompt(cfg) == word_count_prompt
+        and _effective_generation_tasks(cfg) == generation_tasks
         and cfg.get("skip_generate") == skip_generate
         and cfg.get("skip_cka") == skip_cka
         and cfg.get("cka_chunk_rows") == cka_chunk_rows
         and cfg.get("max_new_tokens") == max_new_tokens
         and _effective_max_generated_words(cfg) == max_generated_words
+        and _effective_match_abstract_length(cfg) == match_abstract_length
         and cfg.get("batch_size") == batch_size
         and cfg.get("chunk_size") == chunk_size
         and cfg.get("local_only") == local_only
@@ -329,19 +466,23 @@ def _load_excerpt_rows(out_dir: str) -> list[dict[str, Any]]:
     return load_corpus_jsonl(os.path.join(out_dir, "corpus_excerpts_used.jsonl"))
 
 
+def _task_jsonl_path(out_dir: str, subdir: str, slug: str) -> str:
+    return os.path.join(out_dir, subdir, slug, "responses.jsonl")
+
+
 def _responses_jsonl_path(out_dir: str, slug: str) -> str:
-    return os.path.join(out_dir, "responses", slug, "responses.jsonl")
+    return _task_jsonl_path(out_dir, RESPONSE_SUBDIR, slug)
 
 
-def _load_response_by_model(
-    out_dir: str, model_paths: list[str]
+def _load_task_by_model(
+    out_dir: str, subdir: str, model_paths: list[str]
 ) -> dict[str, list[dict[str, Any]]]:
     out: dict[str, list[dict[str, Any]]] = {}
     for mp in model_paths:
         slug = sanitize_model_slug(mp)
-        path = _responses_jsonl_path(out_dir, slug)
+        path = _task_jsonl_path(out_dir, subdir, slug)
         if not os.path.isfile(path):
-            raise FileNotFoundError(f"Missing responses for {slug}: {path}")
+            raise FileNotFoundError(f"Missing generated text for {slug}: {path}")
         rows = []
         with open(path, encoding="utf-8") as f:
             for line in f:
@@ -352,12 +493,26 @@ def _load_response_by_model(
     return out
 
 
+def _load_response_by_model(
+    out_dir: str, model_paths: list[str]
+) -> dict[str, list[dict[str, Any]]]:
+    return _load_task_by_model(out_dir, RESPONSE_SUBDIR, model_paths)
+
+
 def _excerpt_word_npy(out_dir: str, slug: str) -> str:
     return os.path.join(out_dir, "excerpts", slug, "word_embeddings_merged_agnostic.npy")
 
 
+def _task_word_npy(out_dir: str, subdir: str, slug: str) -> str:
+    return os.path.join(out_dir, subdir, slug, "word_embeddings_merged_agnostic.npy")
+
+
+def _task_doc_npy(out_dir: str, subdir: str, slug: str) -> str:
+    return os.path.join(out_dir, subdir, slug, "document_embeddings_merged_agnostic.npy")
+
+
 def _response_word_npy(out_dir: str, slug: str) -> str:
-    return os.path.join(out_dir, "responses", slug, "word_embeddings_merged_agnostic.npy")
+    return _task_word_npy(out_dir, RESPONSE_SUBDIR, slug)
 
 
 def _excerpt_doc_npy(out_dir: str, slug: str) -> str:
@@ -365,7 +520,7 @@ def _excerpt_doc_npy(out_dir: str, slug: str) -> str:
 
 
 def _response_doc_npy(out_dir: str, slug: str) -> str:
-    return os.path.join(out_dir, "responses", slug, "document_embeddings_merged_agnostic.npy")
+    return _task_doc_npy(out_dir, RESPONSE_SUBDIR, slug)
 
 
 def _aggregation_outputs(aggregation_level: str) -> tuple[bool, bool]:
@@ -429,17 +584,20 @@ def _document_category_matrix(
     slugs: list[str],
     skip_generate: bool,
     chunk_rows: int,
+    generation_tasks: list[dict[str, Any]] | None = None,
     doc_ids_allow: set[int] | None = None,
 ) -> dict[str, Any]:
+    generation_tasks = generation_tasks or []
     paths_by_key: dict[tuple[str, str], str] = {}
     for slug in slugs:
         ex = _excerpt_doc_npy(out_dir, slug)
         if os.path.isfile(ex):
             paths_by_key[(slug, "excerpt")] = ex
         if not skip_generate:
-            rp = _response_doc_npy(out_dir, slug)
-            if os.path.isfile(rp):
-                paths_by_key[(slug, "response")] = rp
+            for task in generation_tasks:
+                rp = _task_doc_npy(out_dir, task["subdir"], slug)
+                if os.path.isfile(rp):
+                    paths_by_key[(slug, task["name"])] = rp
 
     if len(paths_by_key) < 2:
         return {
@@ -447,11 +605,11 @@ def _document_category_matrix(
             "aggregated": [],
             "aggregated_focused": {
                 "cross_model_same_segment": [],
-                "within_model_excerpt_vs_response": [],
+                "within_model_different_segments": [],
             },
             "focused": {
                 "cross_model_same_segment": [],
-                "within_model_excerpt_vs_response": [],
+                "within_model_different_segments": [],
             },
         }
 
@@ -568,7 +726,7 @@ def _document_category_matrix(
 
     focused: dict[str, list[dict[str, Any]]] = {
         "cross_model_same_segment": [],
-        "within_model_excerpt_vs_response": [],
+        "within_model_different_segments": [],
     }
     for r in records:
         same_model = r["model_a"] == r["model_b"]
@@ -576,11 +734,11 @@ def _document_category_matrix(
         if not same_model and same_segment:
             focused["cross_model_same_segment"].append(r)
         elif same_model and not same_segment:
-            focused["within_model_excerpt_vs_response"].append(r)
+            focused["within_model_different_segments"].append(r)
 
     aggregated_focused: dict[str, list[dict[str, Any]]] = {
         "cross_model_same_segment": [],
-        "within_model_excerpt_vs_response": [],
+        "within_model_different_segments": [],
     }
     for r in aggregated:
         same_model = r["model_a"] == r["model_b"]
@@ -588,7 +746,7 @@ def _document_category_matrix(
         if not same_model and same_segment:
             aggregated_focused["cross_model_same_segment"].append(r)
         elif same_model and not same_segment:
-            aggregated_focused["within_model_excerpt_vs_response"].append(r)
+            aggregated_focused["within_model_different_segments"].append(r)
 
     return {
         "results": records,
@@ -607,11 +765,13 @@ def run_stage_init(
     instruction: str,
     instruction_keys: list[str],
     word_count_prompt: bool,
+    generation_tasks: list[dict[str, Any]],
     skip_generate: bool,
     skip_cka: bool,
     cka_chunk_rows: int,
     max_new_tokens: int,
     max_generated_words: int | None,
+    match_abstract_length: bool,
     batch_size: int,
     chunk_size: int,
     local_only: bool,
@@ -641,10 +801,12 @@ def run_stage_init(
             cka_chunk_rows=cka_chunk_rows,
             max_new_tokens=max_new_tokens,
             max_generated_words=max_generated_words,
+            match_abstract_length=match_abstract_length,
             batch_size=batch_size,
             chunk_size=chunk_size,
             local_only=local_only,
             aggregation_level=aggregation_level,
+            generation_tasks=generation_tasks,
         ):
             raise SystemExit(
                 f"[init] {CONFIG_NAME} exists but CLI args differ from saved config. "
@@ -669,11 +831,13 @@ def run_stage_init(
         "instruction": instruction,
         "instruction_placeholders": instruction_keys,
         "word_count_prompt": word_count_prompt,
+        "generation_tasks": generation_tasks,
         "skip_generate": skip_generate,
         "skip_cka": skip_cka,
         "cka_chunk_rows": cka_chunk_rows,
         "max_new_tokens": max_new_tokens,
         "max_generated_words": max_generated_words,
+        "match_abstract_length": match_abstract_length,
         "batch_size": batch_size,
         "chunk_size": chunk_size,
         "local_only": local_only,
@@ -703,9 +867,11 @@ def run_stage_init(
         "cka_chunk_rows": cka_chunk_rows,
         "max_new_tokens": max_new_tokens,
         "max_generated_words": max_generated_words,
+        "match_abstract_length": match_abstract_length,
         "instruction": instruction,
         "instruction_placeholders": instruction_keys,
         "word_count_prompt": word_count_prompt,
+        "generation_tasks": generation_tasks,
         "num_docs": len(excerpt_rows),
         "aggregation_level": aggregation_level,
         "artifacts": artifacts,
@@ -729,62 +895,78 @@ def run_stage_generate(
     out_dir: str,
     args_models: list[str],
     excerpt_rows: list[dict[str, Any]],
-    instruction: str,
+    generation_tasks: list[dict[str, Any]],
     max_new_tokens: int,
-    max_generated_words: int | None,
+    match_abstract_length: bool,
     device: str,
     local_only: bool,
     force_redo: bool,
-) -> dict[str, list[dict[str, Any]]]:
+) -> None:
     cfg = _load_pipeline_config(out_dir)
     _verify_models_match(cfg["models"], args_models)
-    response_by_model: dict[str, list[dict[str, Any]]] = {}
     for model_path in args_models:
         slug = sanitize_model_slug(model_path)
-        resp_path = _responses_jsonl_path(out_dir, slug)
-        if os.path.isfile(resp_path) and not force_redo:
-            print(f"[generate] skip (exists): {resp_path}")
-            with open(resp_path, encoding="utf-8") as f:
-                response_by_model[slug] = [json.loads(l) for l in f if l.strip()]
+        # Figure out which tasks still need generation before paying to load the model.
+        pending = []
+        for task in generation_tasks:
+            resp_path = _task_jsonl_path(out_dir, task["subdir"], slug)
+            if os.path.isfile(resp_path) and not force_redo:
+                print(f"[generate] skip (exists): {resp_path}")
+            else:
+                pending.append(task)
+        if not pending:
             continue
-        gen_model_start = time.perf_counter()
         tok, gen = load_causal_lm(model_path, device, local_only=local_only)
-        lines_out = []
-        for i, row in enumerate(excerpt_rows):
-            # Prompt templates can mix {title} and {excerpt}; both are populated here.
-            prompt = build_explain_prompt(
-                tok,
-                instruction,
-                excerpt=row["text"],
-                title=str(row.get("title") or ""),
-                word_count=max_generated_words,
+        # Generate every pending task from a single model load.
+        for task in pending:
+            task_start = time.perf_counter()
+            resp_path = _task_jsonl_path(out_dir, task["subdir"], slug)
+            instruction = task["instruction"]
+            lines_out = []
+            for i, row in enumerate(excerpt_rows):
+                mgw = _effective_task_max_generated_words(
+                    task,
+                    str(row.get("text") or ""),
+                    match_abstract_length=match_abstract_length,
+                )
+                # Prompt templates can mix {title} and {excerpt}; both are populated here.
+                prompt = build_explain_prompt(
+                    tok,
+                    instruction,
+                    excerpt=row["text"],
+                    title=str(row.get("title") or ""),
+                    word_count=mgw,
+                )
+                resp_text = generate_completion(
+                    tok, gen, prompt, device, max_new_tokens, max_generated_words=mgw
+                )
+                lines_out.append(
+                    {
+                        "doc_id": row["doc_id"],
+                        "category": row["category"],
+                        "title": row["title"],
+                        "segment": task["name"],
+                        "prompt": prompt,
+                        "response": resp_text,
+                    }
+                )
+                print(
+                    f"  [{slug}/{task['name']}] generated {i + 1}/{len(excerpt_rows)}",
+                    flush=True,
+                )
+            os.makedirs(os.path.dirname(resp_path), exist_ok=True)
+            with open(resp_path, "w", encoding="utf-8") as rf:
+                for ln in lines_out:
+                    rf.write(json.dumps(ln, ensure_ascii=False) + "\n")
+            print(
+                f"[generate] saved {resp_path} ({time.perf_counter() - task_start:.1f}s)"
             )
-            resp_text = generate_completion(
-                tok, gen, prompt, device, max_new_tokens, max_generated_words=max_generated_words
-            )
-            lines_out.append(
-                {
-                    "doc_id": row["doc_id"],
-                    "category": row["category"],
-                    "title": row["title"],
-                    "prompt": prompt,
-                    "response": resp_text,
-                }
-            )
-            print(f"  [{slug}] generated {i + 1}/{len(excerpt_rows)}", flush=True)
         del gen
         if device == "cuda":
             import torch
 
             torch.cuda.empty_cache()
-        os.makedirs(os.path.dirname(resp_path), exist_ok=True)
-        with open(resp_path, "w", encoding="utf-8") as rf:
-            for ln in lines_out:
-                rf.write(json.dumps(ln, ensure_ascii=False) + "\n")
-        response_by_model[slug] = lines_out
-        print(f"[generate] saved {resp_path} ({time.perf_counter() - gen_model_start:.1f}s)")
     _mark_stage_done(out_dir, "generate")
-    return response_by_model
 
 
 def run_stage_embed_excerpts(
@@ -852,6 +1034,7 @@ def run_stage_embed_responses(
     *,
     out_dir: str,
     args_models: list[str],
+    generation_tasks: list[dict[str, Any]],
     device: str,
     local_only: bool,
     batch_size: int,
@@ -866,62 +1049,67 @@ def run_stage_embed_responses(
         _mark_stage_done(out_dir, "embed_responses")
         return
     _verify_models_match(cfg["models"], args_models)
-    response_by_model = _load_response_by_model(out_dir, args_models)
+    want_word, want_doc = _aggregation_outputs(aggregation_level)
     artifacts = run_info.setdefault("artifacts", {})
-    for model_path in args_models:
-        slug = sanitize_model_slug(model_path)
-        w_path = _response_word_npy(out_dir, slug)
-        d_path = _response_doc_npy(out_dir, slug)
-        want_word, want_doc = _aggregation_outputs(aggregation_level)
-        required_paths = []
-        if want_word:
-            required_paths.append(w_path)
-        if want_doc:
-            required_paths.append(d_path)
-        if required_paths and all(os.path.isfile(p) for p in required_paths) and not force_redo:
-            print(f"[embed_responses] skip (exists): {', '.join(required_paths)}")
-            continue
-        resp_docs = response_by_model[slug]
-        # Rebuild into the same schema used for excerpts so embedding stays generic.
-        resp_rows = [
-            {
-                "doc_id": int(x["doc_id"]),
-                "category": x["category"],
-                "title": x["title"],
-                "text": x["response"],
-                "segment": "response",
-            }
-            for x in resp_docs
-        ]
-        r_dir = os.path.join(out_dir, "responses", slug)
-        os.makedirs(r_dir, exist_ok=True)
-        t0 = time.perf_counter()
-        emb_r, meta_r = embed_labeled_texts(
-            resp_rows,
-            model_path,
-            device=device,
-            local_files_only=local_only,
-            batch_size=batch_size,
-            chunk_size=chunk_size,
-        )
-        save_token_npy(os.path.join(r_dir, "token_embeddings.npy"), emb_r, meta_r)
-        if want_word:
-            w_r, m_r = merge_token_embeddings_to_words(emb_r, meta_r)
-            save_word_npy(w_path, w_r, m_r)
-        if want_doc:
-            d_r, dm_r = merge_token_embeddings_to_docs(emb_r, meta_r)
-            save_word_npy(d_path, d_r, dm_r)
-        artifacts[f"responses_{slug}_token_embeddings"] = os.path.join(
-            r_dir, "token_embeddings.npy"
-        )
-        if want_word:
-            artifacts[f"responses_{slug}_word_embeddings"] = w_path
-        if want_doc:
-            artifacts[f"responses_{slug}_document_embeddings"] = d_path
-        run_info["timings_sec"].setdefault("models", {}).setdefault(slug, {})[
-            "embedding_response"
-        ] = round(time.perf_counter() - t0, 3)
-        print(f"[embed_responses] {slug} ({run_info['timings_sec']['models'][slug]['embedding_response']}s)")
+    # Embed each generation task's output (response, summary, ...) with its segment label.
+    for task in generation_tasks:
+        subdir = task["subdir"]
+        segment = task["name"]
+        docs_by_model = _load_task_by_model(out_dir, subdir, args_models)
+        for model_path in args_models:
+            slug = sanitize_model_slug(model_path)
+            w_path = _task_word_npy(out_dir, subdir, slug)
+            d_path = _task_doc_npy(out_dir, subdir, slug)
+            required_paths = []
+            if want_word:
+                required_paths.append(w_path)
+            if want_doc:
+                required_paths.append(d_path)
+            if required_paths and all(os.path.isfile(p) for p in required_paths) and not force_redo:
+                print(f"[embed_responses] skip (exists): {', '.join(required_paths)}")
+                continue
+            resp_docs = docs_by_model[slug]
+            # Rebuild into the same schema used for excerpts so embedding stays generic.
+            resp_rows = [
+                {
+                    "doc_id": int(x["doc_id"]),
+                    "category": x["category"],
+                    "title": x["title"],
+                    "text": x["response"],
+                    "segment": segment,
+                }
+                for x in resp_docs
+            ]
+            r_dir = os.path.join(out_dir, subdir, slug)
+            os.makedirs(r_dir, exist_ok=True)
+            t0 = time.perf_counter()
+            emb_r, meta_r = embed_labeled_texts(
+                resp_rows,
+                model_path,
+                device=device,
+                local_files_only=local_only,
+                batch_size=batch_size,
+                chunk_size=chunk_size,
+            )
+            save_token_npy(os.path.join(r_dir, "token_embeddings.npy"), emb_r, meta_r)
+            if want_word:
+                w_r, m_r = merge_token_embeddings_to_words(emb_r, meta_r)
+                save_word_npy(w_path, w_r, m_r)
+            if want_doc:
+                d_r, dm_r = merge_token_embeddings_to_docs(emb_r, meta_r)
+                save_word_npy(d_path, d_r, dm_r)
+            artifacts[f"{subdir}_{slug}_token_embeddings"] = os.path.join(
+                r_dir, "token_embeddings.npy"
+            )
+            if want_word:
+                artifacts[f"{subdir}_{slug}_word_embeddings"] = w_path
+            if want_doc:
+                artifacts[f"{subdir}_{slug}_document_embeddings"] = d_path
+            elapsed = round(time.perf_counter() - t0, 3)
+            run_info["timings_sec"].setdefault("models", {}).setdefault(slug, {})[
+                f"embedding_{segment}"
+            ] = elapsed
+            print(f"[embed_responses] {slug}/{segment} ({elapsed}s)")
     _mark_stage_done(out_dir, "embed_responses")
 
 
@@ -961,17 +1149,19 @@ def run_stage_cka(
     os.makedirs(cka_dir, exist_ok=True)
     slugs = [sanitize_model_slug(m) for m in args_models]
     slice_suffix = cka_row_slice_file_suffix(cka_filters, cka_doc_ids, cka_slice_label)
+    generation_tasks = _effective_generation_tasks(cfg)
     cka_records: list[dict[str, Any]] = []
+    # agg_spec = (aggregation name, filename suffix, excerpt path fn, task path fn).
     agg_specs: list[tuple[str, str, Any, Any]] = []
     if want_word:
-        agg_specs.append(("word", "", _excerpt_word_npy, _response_word_npy))
+        agg_specs.append(("word", "", _excerpt_word_npy, _task_word_npy))
     if want_doc:
-        agg_specs.append(("document", "_document", _excerpt_doc_npy, _response_doc_npy))
+        agg_specs.append(("document", "_document", _excerpt_doc_npy, _task_doc_npy))
 
     for i in range(len(slugs)):
         for j in range(i + 1, len(slugs)):
             si, sj = slugs[i], slugs[j]
-            for agg_name, seg_suffix, excerpt_path_fn, response_path_fn in agg_specs:
+            for agg_name, seg_suffix, excerpt_path_fn, task_path_fn in agg_specs:
                 # Compare matched aggregation outputs (word and/or document) per segment.
                 ex_a = excerpt_path_fn(out_dir, si)
                 ex_b = excerpt_path_fn(out_dir, sj)
@@ -1003,34 +1193,39 @@ def run_stage_cka(
                         f"CKA excerpt ({agg_name}) {si} vs {sj}: "
                         f"linear_cka={rec_ex['linear_cka']:.6f} n={rec_ex['n_rows']}"
                     )
-                if not skip_generate:
-                    r_a = response_path_fn(out_dir, si)
-                    r_b = response_path_fn(out_dir, sj)
-                    if os.path.isfile(r_a) and os.path.isfile(r_b):
-                        rec_r = {
-                            "segment": "response",
-                            "aggregation": agg_name,
-                            "model_a": si,
-                            "model_b": sj,
-                            **_pairwise_cka_word_files(
-                                r_a,
-                                r_b,
-                                chunk_rows=cka_chunk_rows,
-                                filters=cka_filters or None,
-                                doc_ids=cka_doc_ids,
-                            ),
-                        }
-                        cka_records.append(rec_r)
-                        resp_name = f"response{seg_suffix}__{si}__vs__{sj}{slice_suffix}.json"
-                        with open(os.path.join(cka_dir, resp_name), "w", encoding="utf-8") as cf:
-                            json.dump(rec_r, cf, indent=2)
-                        if rec_r.get("error"):
-                            print(f"CKA response ({agg_name}) {si} vs {sj}: {rec_r['error']}")
-                        else:
-                            print(
-                                f"CKA response ({agg_name}) {si} vs {sj}: "
-                                f"linear_cka={rec_r['linear_cka']:.6f} n={rec_r['n_rows']}"
-                            )
+                if skip_generate:
+                    continue
+                # One CKA record per generated segment (response, summary, ...).
+                for task in generation_tasks:
+                    segment = task["name"]
+                    r_a = task_path_fn(out_dir, task["subdir"], si)
+                    r_b = task_path_fn(out_dir, task["subdir"], sj)
+                    if not (os.path.isfile(r_a) and os.path.isfile(r_b)):
+                        continue
+                    rec_r = {
+                        "segment": segment,
+                        "aggregation": agg_name,
+                        "model_a": si,
+                        "model_b": sj,
+                        **_pairwise_cka_word_files(
+                            r_a,
+                            r_b,
+                            chunk_rows=cka_chunk_rows,
+                            filters=cka_filters or None,
+                            doc_ids=cka_doc_ids,
+                        ),
+                    }
+                    cka_records.append(rec_r)
+                    resp_name = f"{segment}{seg_suffix}__{si}__vs__{sj}{slice_suffix}.json"
+                    with open(os.path.join(cka_dir, resp_name), "w", encoding="utf-8") as cf:
+                        json.dump(rec_r, cf, indent=2)
+                    if rec_r.get("error"):
+                        print(f"CKA {segment} ({agg_name}) {si} vs {sj}: {rec_r['error']}")
+                    else:
+                        print(
+                            f"CKA {segment} ({agg_name}) {si} vs {sj}: "
+                            f"linear_cka={rec_r['linear_cka']:.6f} n={rec_r['n_rows']}"
+                        )
     if has_row_slice and os.path.isfile(cka_index):
         prev_list = _load_json(cka_index)
         if not isinstance(prev_list, list):
@@ -1061,6 +1256,7 @@ def run_stage_cka(
                 slugs=slugs,
                 skip_generate=skip_generate,
                 chunk_rows=cka_chunk_rows,
+                generation_tasks=generation_tasks,
                 doc_ids_allow=cka_doc_ids,
             )
             by_cat_obj = {
@@ -1089,15 +1285,23 @@ def run_stage_cka(
             print(
                 "      (per-cat) cross_model_same_segment=",
                 len(f.get("cross_model_same_segment", [])),
-                "within_model_excerpt_vs_response=",
-                len(f.get("within_model_excerpt_vs_response", [])),
+                "within_model_different_segments=",
+                len(
+                    f.get("within_model_different_segments")
+                    or f.get("within_model_excerpt_vs_response")
+                    or []
+                ),
             )
             agf = by_cat_obj.get("aggregated_focused", {}) or {}
             print(
                 "      (pooled) cross_model_same_segment=",
                 len(agf.get("cross_model_same_segment", [])),
-                "within_model_excerpt_vs_response=",
-                len(agf.get("within_model_excerpt_vs_response", [])),
+                "within_model_different_segments=",
+                len(
+                    agf.get("within_model_different_segments")
+                    or agf.get("within_model_excerpt_vs_response")
+                    or []
+                ),
             )
         run_info.setdefault("artifacts", {})["cka_document_by_category"] = by_cat_index
 
@@ -1180,7 +1384,20 @@ def main() -> None:
             "whitespace-delimited words; hyphenated spellings count as one word. "
             "Still bounded by --max_new_tokens and EOS. Does not cap --words excerpts or "
             "embedding length. Stored as max_generated_words in pipeline_config; must match "
-            "on --stage generate. Legacy configs may still have max_words (same meaning)."
+            "on --stage generate. Legacy configs may still have max_words (same meaning). "
+            "Incompatible with --match_abstract_length."
+        ),
+    )
+    p.add_argument(
+        "--match_abstract_length",
+        action="store_true",
+        help=(
+            "Per-document generation word target/cap: for each excerpt, use that excerpt's "
+            "whitespace word count (after --words truncation) as {word_count} and the hard "
+            "cap for both the response and summary tasks. Incompatible with "
+            "--max_generated_words / --summarize_words. Enables {word_count} / "
+            "--word_count_prompt without a fixed N. Stored in pipeline_config; must match "
+            "on resumed stages."
         ),
     )
     p.add_argument(
@@ -1193,7 +1410,37 @@ def main() -> None:
         action="store_true",
         help=(
             "Use the preset instruction "
-            f"{WORD_COUNT_INSTRUCTION!r}; requires --max_generated_words"
+            f"{WORD_COUNT_INSTRUCTION!r}; requires --max_generated_words "
+            "or --match_abstract_length"
+        ),
+    )
+    p.add_argument(
+        "--summarize",
+        action="store_true",
+        help=(
+            "Additive: also generate a summarization task (segment 'summary') alongside "
+            "the response task. Outputs go under summaries/<slug>/ and are embedded and "
+            "CKA-compared as an extra segment. Stored in pipeline_config; re-pass on "
+            "staged runs to match config."
+        ),
+    )
+    p.add_argument(
+        "--summarize_instruction",
+        default=SUMMARIZE_INSTRUCTION,
+        help=(
+            "Prompt template for the --summarize task; {title}, {excerpt}, and/or "
+            f"{{word_count}} (default: {SUMMARIZE_INSTRUCTION!r})."
+        ),
+    )
+    p.add_argument(
+        "--summarize_words",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Word target/cap for the --summarize task (fills {word_count} and hard-caps "
+            "the generated summary). Defaults to --max_generated_words when omitted. "
+            "Incompatible with --match_abstract_length."
         ),
     )
     p.add_argument("--batch_size", type=int, default=12)
@@ -1252,17 +1499,36 @@ def main() -> None:
             p.error(str(e))
     cka_doc_ids_parsed = parse_doc_ids_arg(args.cka_doc_ids)
 
+    if args.match_abstract_length and args.max_generated_words is not None:
+        p.error("--match_abstract_length cannot be combined with --max_generated_words")
+    if args.match_abstract_length and args.summarize_words is not None:
+        p.error("--match_abstract_length cannot be combined with --summarize_words")
     try:
         instruction, word_count_prompt = resolve_instruction_args(
             instruction=args.instruction,
             max_generated_words=args.max_generated_words,
             word_count_prompt=args.word_count_prompt,
+            match_abstract_length=args.match_abstract_length,
         )
     except ValueError as e:
         p.error(str(e))
     keys = _instruction_placeholders(instruction)
     if args.max_generated_words is not None and args.max_generated_words < 1:
         p.error("--max_generated_words must be >= 1 when set")
+    if args.summarize_words is not None and args.summarize_words < 1:
+        p.error("--summarize_words must be >= 1 when set")
+    try:
+        generation_tasks = build_generation_tasks(
+            instruction=instruction,
+            max_generated_words=args.max_generated_words,
+            word_count_prompt=word_count_prompt,
+            summarize=args.summarize,
+            summarize_instruction=args.summarize_instruction,
+            summarize_words=args.summarize_words,
+            match_abstract_length=args.match_abstract_length,
+        )
+    except ValueError as e:
+        p.error(str(e))
 
     force_redo = bool(args.overwrite or not args.resume)
 
@@ -1292,11 +1558,13 @@ def main() -> None:
             instruction=instruction,
             instruction_keys=sorted(keys),
             word_count_prompt=word_count_prompt,
+            generation_tasks=generation_tasks,
             skip_generate=args.skip_generate,
             skip_cka=args.skip_cka,
             cka_chunk_rows=args.cka_chunk_rows,
             max_new_tokens=args.max_new_tokens,
             max_generated_words=args.max_generated_words,
+            match_abstract_length=args.match_abstract_length,
             batch_size=args.batch_size,
             chunk_size=args.chunk_size,
             local_only=local_only,
@@ -1306,15 +1574,14 @@ def main() -> None:
             cli_command=cli_command,
             cli_argv=cli_argv,
         )
-        response_by_model: dict[str, list[dict[str, Any]]] = {}
         if not args.skip_generate:
-            response_by_model = run_stage_generate(
+            run_stage_generate(
                 out_dir=out_dir,
                 args_models=args.models,
                 excerpt_rows=excerpt_rows,
-                instruction=instruction,
+                generation_tasks=generation_tasks,
                 max_new_tokens=args.max_new_tokens,
-                max_generated_words=args.max_generated_words,
+                match_abstract_length=args.match_abstract_length,
                 device=device,
                 local_only=local_only,
                 force_redo=force_redo,
@@ -1335,6 +1602,7 @@ def main() -> None:
             run_stage_embed_responses(
                 out_dir=out_dir,
                 args_models=args.models,
+                generation_tasks=generation_tasks,
                 device=device,
                 local_only=local_only,
                 batch_size=args.batch_size,
@@ -1380,11 +1648,13 @@ def main() -> None:
             instruction=instruction,
             instruction_keys=sorted(keys),
             word_count_prompt=word_count_prompt,
+            generation_tasks=generation_tasks,
             skip_generate=args.skip_generate,
             skip_cka=args.skip_cka,
             cka_chunk_rows=args.cka_chunk_rows,
             max_new_tokens=args.max_new_tokens,
             max_generated_words=args.max_generated_words,
+            match_abstract_length=args.match_abstract_length,
             batch_size=args.batch_size,
             chunk_size=args.chunk_size,
             local_only=local_only,
@@ -1406,6 +1676,17 @@ def main() -> None:
             raise SystemExit(
                 f"--word_count_prompt must match {CONFIG_NAME} "
                 f"(word_count_prompt={_effective_word_count_prompt(cfg)!r})."
+            )
+        if args.match_abstract_length != _effective_match_abstract_length(cfg):
+            raise SystemExit(
+                f"--match_abstract_length must match {CONFIG_NAME} "
+                f"(match_abstract_length={_effective_match_abstract_length(cfg)!r})."
+            )
+        if generation_tasks != _effective_generation_tasks(cfg):
+            raise SystemExit(
+                f"--summarize / generation task flags must match {CONFIG_NAME}.\n"
+                f"  config: {_effective_generation_tasks(cfg)!r}\n"
+                f"  cli:    {generation_tasks!r}"
             )
         if local_only != cfg.get("local_only", True):
             raise SystemExit(
@@ -1433,9 +1714,9 @@ def main() -> None:
                 out_dir=out_dir,
                 args_models=args.models,
                 excerpt_rows=excerpt_rows,
-                instruction=cfg["instruction"],
+                generation_tasks=_effective_generation_tasks(cfg),
                 max_new_tokens=cfg["max_new_tokens"],
-                max_generated_words=cfg_mgw,
+                match_abstract_length=_effective_match_abstract_length(cfg),
                 device=device,
                 local_only=local_only,
                 force_redo=force_redo,
@@ -1459,6 +1740,7 @@ def main() -> None:
         run_stage_embed_responses(
             out_dir=out_dir,
             args_models=args.models,
+            generation_tasks=_effective_generation_tasks(cfg),
             device=device,
             local_only=local_only,
             batch_size=cfg["batch_size"],

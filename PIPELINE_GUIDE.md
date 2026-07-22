@@ -27,9 +27,9 @@ Example sources in this repo: `data/wiki_tree_corpus_for_cka.jsonl`, or JSONL pr
 | Stage | What it does |
 |-------|----------------|
 | `init` | Writes excerpt JSONL, copies/records corpus metadata, creates `pipeline_config.json` and `pipeline_state.json` under `--out_dir`. |
-| `generate` | For each `--models` entry: loads the causal LM, builds prompts from `--instruction`, writes `responses/<slug>/responses.jsonl` (includes `prompt` and `response`). Generation length is capped by `--max_new_tokens` (new tokens) and, optionally, `--max_generated_words` (decoded **generated completion** words only—see **Generation limits** below). Skipped if `skip_generate` was set at init. |
+| `generate` | For each `--models` entry: loads the causal LM once and runs every configured **generation task**. The primary task writes `responses/<slug>/responses.jsonl`; adding `--summarize` also writes `summaries/<slug>/responses.jsonl` (each line includes `segment`, `prompt`, and `response`). Generation length is capped by `--max_new_tokens` (new tokens) and, per task, a word cap (`--max_generated_words` for `response`, `--summarize_words` for `summary`, or each excerpt's word count when `--match_abstract_length` is set)—see **Generation limits** below. Skipped if `skip_generate` was set at init. |
 | `embed_excerpts` | Token embeddings + aggregation (`--aggregation_level word|document|both`) for excerpt text; artifacts under `excerpts/<slug>/`. |
-| `embed_responses` | Same for generated responses under `responses/<slug>/`. Requires generation outputs unless `skip_generate`. |
+| `embed_responses` | Same for each generated task under its directory (`responses/<slug>/`, `summaries/<slug>/`, …), tagging rows with the task's segment label. Requires generation outputs unless `skip_generate`. |
 | `cka` | Pairwise **linear CKA** on aligned embedding rows from the configured aggregation level (`word`, `document`, or both); writes `cka/cka_index.json` and per-pair JSON files. For document aggregation, also writes a category-stratified matrix at `cka/document_cka_by_category.json`. Honors `skip_cka` from `pipeline_config.json` on staged runs. |
 
 **Default:** `--stage all` runs `init` through `cka` in one process (same order as above).
@@ -73,7 +73,7 @@ $RC = "F:\code\Independent Study\run_categorized_corpus.py"
 
 You can stop between lines and resume days later; see **Resume and overwrite** below.
 
-**Important:** After `init`, every later stage must use CLI flags that **match** `pipeline_config.json` exactly for: `--instruction`, `--word_count_prompt`, `--batch_size`, `--chunk_size`, `--aggregation_level`, `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, and local-only vs `--allow_remote`. For the **`generate`** stage only, `--max_new_tokens` and `--max_generated_words` must each match the effective saved values (see **Legacy `max_words` in config** under Troubleshooting). If you need to change those, redo **`init`** with `--overwrite` (or a new `--out_dir`).
+**Important:** After `init`, every later stage must use CLI flags that **match** `pipeline_config.json` exactly for: `--instruction`, `--word_count_prompt`, `--match_abstract_length`, `--summarize` (with `--summarize_instruction` / `--summarize_words`), `--batch_size`, `--chunk_size`, `--aggregation_level`, `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, and local-only vs `--allow_remote`. For the **`generate`** stage only, `--max_new_tokens` and `--max_generated_words` must each match the effective saved values (see **Legacy `max_words` in config** under Troubleshooting). If you need to change those, redo **`init`** with `--overwrite` (or a new `--out_dir`).
 
 ## Resume and overwrite
 
@@ -87,7 +87,7 @@ You can stop between lines and resume days later; see **Resume and overwrite** b
 
 ## Configuration files under `--out_dir`
 
-- **`pipeline_config.json`** — Frozen settings from `init` (corpus path, excerpt `--words`, model paths, instruction template, generation caps `max_new_tokens` / optional `max_generated_words`, batch/chunk sizes, `skip_generate`, `skip_cka`, etc.). Staged runs load this and **validate** your CLI against it.
+- **`pipeline_config.json`** — Frozen settings from `init` (corpus path, excerpt `--words`, model paths, instruction template, generation caps `max_new_tokens` / optional `max_generated_words` / `match_abstract_length`, batch/chunk sizes, `skip_generate`, `skip_cka`, etc.). Staged runs load this and **validate** your CLI against it.
 - **`pipeline_state.json`** — List of completed stage names (`init`, `generate`, …).
 - **`run_info.json`** — Timings, artifact paths, CKA summary records (merged across stages). Includes **`cli_command`** (Windows **cmd.exe** one-liner) and **`cli_argv`** (raw argv list) from the `init` invocation.
 
@@ -103,7 +103,7 @@ Use `--word_count_prompt` to switch to the preset instruction:
 
 `In {word_count} words, explain the following: {title}`
 
-This requires `--max_generated_words` (the same value is injected into `{word_count}` in the prompt and used as the hard generation cap). Example:
+This requires `--max_generated_words` or `--match_abstract_length` (the same value is injected into `{word_count}` in the prompt and used as the hard generation cap; with `--match_abstract_length`, that value is each excerpt's word count). Example:
 
 ```powershell
 .\.venv313\Scripts\python.exe .\run_categorized_corpus.py `
@@ -120,9 +120,37 @@ This requires `--max_generated_words` (the same value is injected into `{word_co
   --stage all
 ```
 
-You can also put `{word_count}` in a custom `--instruction` (without the preset flag); `--max_generated_words` is still required when `{word_count}` appears.
+You can also put `{word_count}` in a custom `--instruction` (without the preset flag); `--max_generated_words` or `--match_abstract_length` is still required when `{word_count}` appears.
 
 The `word_count_prompt` boolean is stored in `pipeline_config.json` and must match on resumed staged runs.
+
+### Additive summarize task (`--summarize`)
+
+Analysis has three forks: **model** (each `--models` entry), **segment** (`excerpt` = source text vs generated text), and now **generation task**. `--summarize` adds a second generation task *in the same run*, so a single pipeline produces both the explain-style `response` and a `summary` segment.
+
+- Prompt (default): `Summarize the following in {word_count} words: {excerpt}` (override with `--summarize_instruction`).
+- Word target: `--summarize_words N`; when omitted it **defaults to `--max_generated_words`** (the response task's cap). It fills `{word_count}` and hard-caps the generated summary. With `--match_abstract_length`, both tasks use each excerpt's word count instead (do not pass `--summarize_words`).
+- Outputs: `summaries/<slug>/responses.jsonl` and embeddings, mirroring `responses/<slug>/`.
+- CKA: the `summary` segment is embedded and compared like any other, so the document-by-category matrix spans **all `model × segment` pairs** (excerpt / response / summary) automatically.
+
+The task list is frozen in `pipeline_config.json` as `generation_tasks`. Re-pass `--summarize` (and any `--summarize_instruction` / `--summarize_words`) on staged runs so the CLI matches config. Older configs without `generation_tasks` resume as a single `response` task.
+
+```powershell
+& $PY $RC `
+  --corpus ".\data\wiki_tree_corpus_for_cka.jsonl" `
+  --out_dir ".\outputs\my_run_summarize" `
+  --models "F:\path\to\gemma-3-1b-it" "F:\path\to\Qwen3.5-0.8B" `
+  --aggregation_level "document" `
+  --words 200 `
+  --max_new_tokens 1500 `
+  --max_generated_words 200 `
+  --word_count_prompt `
+  --summarize `
+  --summarize_words 50 `
+  --batch_size 4 `
+  --chunk_size 768 `
+  --stage all
+```
 
 ## Generation limits (`generate` stage only)
 
@@ -131,9 +159,10 @@ These flags affect **only** causal LM decoding when writing `responses/<slug>/re
 | Flag | Role |
 |------|------|
 | `--max_new_tokens` | Hard ceiling on **new** tokens from `model.generate` (per completion). May finish earlier on EOS. |
-| `--max_generated_words` | Optional. Early stopping once the **decoded generated completion** (tokens after the prompt—the assistant reply) reaches **N** whitespace-separated words; hyphenated forms like `well-known` count as **one** word. Still limited by `--max_new_tokens` and EOS. After stop, the completion may be trimmed to at most **N** words so the cap is strict. |
+| `--max_generated_words` | Optional. Early stopping once the **decoded generated completion** (tokens after the prompt—the assistant reply) reaches **N** whitespace-separated words; hyphenated forms like `well-known` count as **one** word. Still limited by `--max_new_tokens` and EOS. After stop, the completion may be trimmed to at most **N** words so the cap is strict. Incompatible with `--match_abstract_length`. |
+| `--match_abstract_length` | Optional alternative to fixed `--max_generated_words` / `--summarize_words`. For each document, the response and summary word target/cap equals that excerpt's whitespace word count (after `--words` truncation). Short docs therefore get shorter caps than `--words`. Fills `{word_count}` and hard-caps decoding the same way as a fixed N. |
 
-Both values are recorded at **`init`** and must be repeated exactly on **`--stage generate`** in staged runs.
+These values are recorded at **`init`** and must be repeated exactly on **`--stage generate`** in staged runs.
 
 ## Common CLI options
 
@@ -147,9 +176,10 @@ See [CLI_REFERENCE.md](CLI_REFERENCE.md) for the complete table including `--sta
 | `--models` | One or more **local** checkpoint directories; order and paths must match `pipeline_config.json` when resuming. |
 | `--words` | First N words per doc used as excerpt (stored at init). |
 | `--instruction` | Prompt template; see above. |
-| `--word_count_prompt` | Use the word-count preset instruction; requires `--max_generated_words`. Stored at init. |
+| `--word_count_prompt` | Use the word-count preset instruction; requires `--max_generated_words` or `--match_abstract_length`. Stored at init. |
 | `--max_new_tokens` | **Generate** stage: max new tokens per completion; must match config for `--stage generate`. |
-| `--max_generated_words` | **Generate** stage only (optional): max words in the decoded **generated reply**; see **Generation limits**. Must match config for `--stage generate`. Required with `--word_count_prompt` or `{word_count}` in instruction. |
+| `--max_generated_words` | **Generate** stage only (optional): max words in the decoded **generated reply**; see **Generation limits**. Must match config for `--stage generate`. Required with `--word_count_prompt` or `{word_count}` in instruction unless `--match_abstract_length`. |
+| `--match_abstract_length` | **Generate** stage alternative: per-excerpt word caps for response/summary; see **Generation limits**. Stored at init; incompatible with fixed word-cap flags. |
 | `--batch_size`, `--chunk_size` | Embedding batching (stored at init). |
 | `--aggregation_level` | Aggregation output from token embeddings: `word` (default), `document`, or `both` (stored at init). CKA runs on the available aggregation output(s). |
 | `--skip_generate` | Excerpt-only pipeline: no `responses/` generation; response embedding and response CKA pairs are omitted. |
@@ -202,6 +232,11 @@ The standalone script supports the same filters:
     token_embeddings.npy
     word_embeddings_merged_agnostic.npy
     document_embeddings_merged_agnostic.npy   (if --aggregation_level document|both)
+  summaries/<model_slug>/                     (only with --summarize)
+    responses.jsonl
+    token_embeddings.npy
+    word_embeddings_merged_agnostic.npy
+    document_embeddings_merged_agnostic.npy   (if --aggregation_level document|both)
   cka/
     cka_index.json
     document_cka_by_category.json   (if --aggregation_level document|both)
@@ -210,6 +245,8 @@ The standalone script supports the same filters:
     excerpt__<a>__vs__<b>__<slice_suffix>.json   (optional, when --cka_filter / --cka_doc_ids used)
     response__<a>__vs__<b>.json   (word, if generation ran and word response npys exist)
     response_document__<a>__vs__<b>.json   (document, if generation ran and document response npys exist)
+    summary__<a>__vs__<b>.json   (word, only with --summarize)
+    summary_document__<a>__vs__<b>.json   (document, only with --summarize)
 ```
 
 Exact filenames follow `sanitize_model_slug()` (derived from the model directory name). Pairwise JSON records include `n_rows` (after slice), `n_rows_total`, and optional `row_slice` describing filters.

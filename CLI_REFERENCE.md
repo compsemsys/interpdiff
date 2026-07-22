@@ -41,10 +41,14 @@ Main pipeline CLI. Alias: `pipeline_embed_explain_cka.py` (same `main()`).
 | `--models` | *(required)* | yes | generate, embed_*, cka | Local model checkpoint dirs. Order and paths must match `pipeline_config.json` when resuming. |
 | `--stage` | `all` | — | — | `all`, `init`, `generate`, `embed_excerpts`, `embed_responses`, or `cka`. |
 | `--words` | `200` | yes | init | First N whitespace-delimited words of each doc's `text` used as the excerpt. |
-| `--instruction` | `Explain the following: {title}` | yes | generate | Prompt template. Placeholders: `{title}`, `{excerpt}`, `{word_count}`. Must contain at least one of `{title}` or `{excerpt}`. `{word_count}` requires `--max_generated_words`. |
-| `--word_count_prompt` | off | yes | generate | Preset: `In {word_count} words, explain the following: {title}`. Requires `--max_generated_words`. Overrides `--instruction`. |
-| `--max_new_tokens` | `256` | yes | generate | Max **new** tokens per completion (`model.generate`). Must match config on `--stage generate`. |
-| `--max_generated_words` | *(none)* | yes | generate | Optional hard cap on decoded **assistant reply** words (whitespace-split; hyphenated = one word). Still bounded by `--max_new_tokens` and EOS. Required when `{word_count}` appears in instruction or when `--word_count_prompt` is set. Must match config on `--stage generate`. |
+| `--instruction` | `Explain the following: {title}` | yes | generate | Prompt template. Placeholders: `{title}`, `{excerpt}`, `{word_count}`. Must contain at least one of `{title}` or `{excerpt}`. `{word_count}` requires `--max_generated_words` or `--match_abstract_length`. |
+| `--word_count_prompt` | off | yes | generate | Preset: `In {word_count} words, explain the following: {title}`. Requires `--max_generated_words` or `--match_abstract_length`. Overrides `--instruction`. |
+| `--summarize` | off | yes | generate, embed_responses, cka | **Additive** second generation task (segment `summary`). Runs *alongside* the response task from the same model load; outputs under `summaries/<slug>/`, embedded and CKA-compared as an extra segment (full model×segment matrix). Re-pass to match config on staged runs. |
+| `--summarize_instruction` | `Summarize the following in {word_count} words: {excerpt}` | yes | generate | Prompt template for the `--summarize` task. Placeholders: `{title}`, `{excerpt}`, `{word_count}` (must contain at least one of `{title}`/`{excerpt}`). |
+| `--summarize_words` | *(defaults to `--max_generated_words`)* | yes | generate | Word target/cap for the summary (fills `{word_count}` and hard-caps the generated summary). Omit to reuse the response task's word count. Incompatible with `--match_abstract_length`. |
+| `--max_new_tokens` | `256` | yes | generate | Max **new** tokens per completion (`model.generate`). Must match config on `--stage generate`. Shared ceiling across all generation tasks. |
+| `--max_generated_words` | *(none)* | yes | generate | Optional hard cap on decoded **assistant reply** words (whitespace-split; hyphenated = one word). Still bounded by `--max_new_tokens` and EOS. Required when `{word_count}` appears in instruction or when `--word_count_prompt` is set (unless `--match_abstract_length`). Must match config on `--stage generate`. Incompatible with `--match_abstract_length`. |
+| `--match_abstract_length` | off | yes | generate | Per-document word target/cap: each response/summary uses that excerpt's word count (after `--words`) for `{word_count}` and the hard stop. Incompatible with `--max_generated_words` / `--summarize_words`. Enables `{word_count}` / `--word_count_prompt` without a fixed N. |
 | `--batch_size` | `12` | yes | embed_* | Embedding batch size (grouped by sequence length). |
 | `--chunk_size` | `1024` | yes | embed_* | Max tokens per forward pass when embedding long texts. |
 | `--aggregation_level` | `word` | yes | embed_*, cka | `word`, `document`, or `both`. Controls which `.npy` aggregation outputs are written and which CKA pairs run. |
@@ -63,7 +67,7 @@ Main pipeline CLI. Alias: `pipeline_embed_explain_cka.py` (same `main()`).
 
 After `init`, these must match `pipeline_config.json` on every later stage:
 
-`--corpus`, `--words`, `--models`, `--instruction`, `--word_count_prompt`, `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, `--batch_size`, `--chunk_size`, `--aggregation_level`, local-only vs `--allow_remote`.
+`--corpus`, `--words`, `--models`, `--instruction`, `--word_count_prompt`, `--match_abstract_length`, `--summarize` (and its `--summarize_instruction` / `--summarize_words`), `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, `--batch_size`, `--chunk_size`, `--aggregation_level`, local-only vs `--allow_remote`.
 
 Additionally on `--stage generate` only: `--max_new_tokens`, `--max_generated_words`.
 
@@ -83,7 +87,19 @@ To change frozen settings, re-run `init` with `--overwrite` or use a new `--out_
 
 # Custom word-count wording
 --instruction "Summarize in {word_count} words: {title}" --max_generated_words 100
+
+# Additive summarize task (segment "summary") alongside the response task.
+# summary word target defaults to --max_generated_words (200) unless --summarize_words is set.
+--word_count_prompt --max_generated_words 200 --summarize
+--word_count_prompt --max_generated_words 200 --summarize --summarize_words 50
+
+# Per-excerpt caps: each doc's response/summary targets that excerpt's word count
+--word_count_prompt --match_abstract_length --summarize --words 200
 ```
+
+### Generation tasks (segments)
+
+Each run generates one or more **tasks**, recorded in `pipeline_config.json` as `generation_tasks`. The first is always the explain-style `response` task (segment `response`, dir `responses/`). Adding `--summarize` appends a `summary` task (segment `summary`, dir `summaries/`). Every task is embedded and enters CKA as its own segment, so the document-by-category matrix spans all `model × segment` pairs. `--max_new_tokens` is a single ceiling shared by all tasks; per-task word targets come from `--max_generated_words` (response) and `--summarize_words` (summary, defaulting to the former), or from each excerpt's length when `--match_abstract_length` is set.
 
 ### Full-run example
 
@@ -126,8 +142,9 @@ Does **not** expose `--stage`, `--resume`, `--overwrite`, `--cka_filter`, or `--
 | `--aggregation-level` | `word` | `word`, `document`, or `both`. |
 | `--max-new-tokens` | `128` | Forwarded to `--max_new_tokens`. |
 | `--max-generated-words` | *(none)* | Forwarded to `--max_generated_words`. |
+| `--match-abstract-length` | off | Forwarded to `--match_abstract_length`. |
 | `--instruction` | `Explain the following: {title}` | Forwarded to `--instruction`. |
-| `--word-count-prompt` | off | Forwarded to `--word_count_prompt`; requires `--max-generated-words`. |
+| `--word-count-prompt` | off | Forwarded to `--word_count_prompt`; requires `--max-generated-words` or `--match-abstract-length`. |
 | `--skip-generate` | off | Excerpt embeddings only. |
 | `--skip-cka` | off | Forwarded to `--skip_cka`. |
 

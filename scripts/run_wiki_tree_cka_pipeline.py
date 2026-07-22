@@ -124,7 +124,20 @@ def main() -> None:
         default=None,
         dest="max_generated_words",
         metavar="N",
-        help="Optional cap on words in the generated reply; forwarded to run_categorized_corpus --max_generated_words",
+        help=(
+            "Optional cap on words in the generated reply; forwarded to "
+            "run_categorized_corpus --max_generated_words. Incompatible with "
+            "--match-abstract-length."
+        ),
+    )
+    p.add_argument(
+        "--match-abstract-length",
+        action="store_true",
+        dest="match_abstract_length",
+        help=(
+            "Forwarded to run_categorized_corpus --match_abstract_length "
+            "(per-excerpt word caps; incompatible with --max-generated-words)."
+        ),
     )
     p.add_argument(
         "--instruction",
@@ -135,7 +148,10 @@ def main() -> None:
         "--word-count-prompt",
         action="store_true",
         dest="word_count_prompt",
-        help="Forwarded to run_categorized_corpus --word_count_prompt (requires --max-generated-words)",
+        help=(
+            "Forwarded to run_categorized_corpus --word_count_prompt "
+            "(requires --max-generated-words or --match-abstract-length)"
+        ),
     )
     p.add_argument(
         "--skip-generate",
@@ -186,8 +202,12 @@ def main() -> None:
         "--instruction",
         args.instruction,
     ]
+    if args.match_abstract_length and args.max_generated_words is not None:
+        p.error("--match-abstract-length cannot be combined with --max-generated-words")
     if args.max_generated_words is not None:
         ts_cmd += ["--max_generated_words", str(args.max_generated_words)]
+    if args.match_abstract_length:
+        ts_cmd.append("--match_abstract_length")
     if args.word_count_prompt:
         ts_cmd.append("--word_count_prompt")
     if args.out_dir:
