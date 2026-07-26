@@ -11542,5 +11542,38 @@
         "linear_cka": 0.5435438846258376
       }
     ]
+  },
+  "run_params": {
+    "corpus": "F:\\code\\Independent Study\\data\\wiki_tree_corpus_for_cka.jsonl",
+    "words": 200,
+    "models": [
+      "F:\\quantas\\models\\google\\gemma-3-1b-it",
+      "F:\\quantas\\models\\Qwen\\Qwen3.5-0.8B"
+    ],
+    "aggregation_level": "document",
+    "max_new_tokens": 1500,
+    "max_generated_words": 200,
+    "word_count_prompt": true,
+    "generation_tasks": [
+      {
+        "name": "response",
+        "max_generated_words": 200,
+        "word_count_prompt": true
+      },
+      {
+        "name": "summary",
+        "max_generated_words": 50,
+        "word_count_prompt": false
+      }
+    ],
+    "num_docs": 200,
+    "cli_command": ".\\run_categorized_corpus.py --corpus .\\data\\wiki_tree_corpus_for_cka.jsonl --out_dir .\\outputs\\my_run9 --models F:\\quantas\\models\\google\\gemma-3-1b-it F:\\quantas\\models\\Qwen\\Qwen3.5-0.8B --aggregation_level document --words 200 --max_new_tokens 1500 --max_generated_words 200 --word_count_prompt --summarize --batch_size 4 --chunk_size 768 --stage all --summarize_words 50",
+    "device": "cuda",
+    "batch_size": 4,
+    "chunk_size": 768,
+    "skip_generate": false,
+    "skip_cka": false,
+    "cka_chunk_rows": 4096,
+    "local_only": true
   }
 }

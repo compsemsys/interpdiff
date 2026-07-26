@@ -52,39 +52,8 @@ def load_embeddings_and_meta(
 ) -> tuple[np.ndarray, list[dict[str, Any]]]:
     data = np.load(path, allow_pickle=True).item()
     emb = np.asarray(data["embeddings"], dtype=dtype)
-    meta = list(data["meta"])
-    # Newer runs include top-level doc_ids[i] == meta[i]["doc_id"]; older files omit it.
-    if "doc_ids" in data:
-        doc_ids = np.asarray(data["doc_ids"])
-        if len(doc_ids) != emb.shape[0]:
-            raise ValueError(
-                f"doc_ids/embeddings length mismatch for {path}: "
-                f"{len(doc_ids)} vs {emb.shape[0]}"
-            )
-        for i, (did, m) in enumerate(zip(doc_ids, meta)):
-            if int(m["doc_id"]) != int(did):
-                raise ValueError(
-                    f"doc_ids/meta mismatch for {path} at row {i}: "
-                    f"doc_ids[{i}]={int(did)} meta.doc_id={int(m['doc_id'])}"
-                )
+    meta = data["meta"]
     return emb, meta
-
-
-def load_doc_ids(path: str) -> np.ndarray:
-    """
-    Explicit per-row document IDs for an embeddings ``.npy``.
-
-    Prefers the top-level ``doc_ids`` array written by newer pipeline runs;
-    falls back to ``meta[i]['doc_id']`` for older files.
-    """
-    data = np.load(path, allow_pickle=True).item()
-    if "doc_ids" in data:
-        return np.asarray(data["doc_ids"], dtype=np.int64)
-    meta_key = "meta" if "meta" in data else "token_meta"
-    meta = data[meta_key]
-    if meta and isinstance(meta[0], list):
-        meta = [item for chunk in meta for item in chunk]
-    return np.asarray([int(m["doc_id"]) for m in meta], dtype=np.int64)
 
 
 def meta_key(m: dict[str, Any]) -> tuple:

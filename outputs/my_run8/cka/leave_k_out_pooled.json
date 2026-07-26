@@ -6,7 +6,7 @@
   "n_reps": 100,
   "seed": 0,
   "n_pairs": 9,
-  "seconds": 16.142155999783427,
+  "seconds": 19.204318199772388,
   "results": [
     {
       "model_a": "Qwen3.5-0.8B",

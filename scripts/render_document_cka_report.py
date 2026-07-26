@@ -136,6 +136,180 @@ def _category_by_keyword(categories: list[str], keyword: str) -> str | None:
 
 _SEGMENT_ORDER = {"excerpt": 0, "response": 1, "summary": 2}
 
+# Keys used when falling back to run_info / pipeline_config for older JSON
+# that lacks ``run_params``. Keep in sync with ``_document_cka_run_params``.
+_RUN_PARAM_KEYS = (
+    "corpus",
+    "words",
+    "models",
+    "aggregation_level",
+    "max_new_tokens",
+    "max_generated_words",
+    "match_abstract_length",
+    "word_count_prompt",
+    "generation_tasks",
+    "num_docs",
+    "cli_command",
+    "device",
+    "batch_size",
+    "chunk_size",
+    "skip_generate",
+    "skip_cka",
+    "cka_chunk_rows",
+    "local_only",
+)
+
+
+def build_run_params(*sources: dict[str, object] | None) -> dict[str, object]:
+    """
+    Merge run_info / pipeline_config dicts (later sources override) into the
+    same subset written by ``_document_cka_run_params`` at CKA time.
+    """
+    merged: dict[str, object] = {}
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        for k in _RUN_PARAM_KEYS:
+            if k in src:
+                merged[k] = src[k]
+    tasks = merged.get("generation_tasks")
+    if isinstance(tasks, list):
+        compact: list[dict[str, object]] = []
+        for t in tasks:
+            if not isinstance(t, dict):
+                continue
+            entry: dict[str, object] = {
+                "name": t.get("name"),
+                "max_generated_words": t.get("max_generated_words"),
+            }
+            if "instruction" in t:
+                entry["instruction"] = t.get("instruction")
+            compact.append(entry)
+        if compact:
+            merged["generation_tasks"] = compact
+    return merged
+
+
+def _task_instructions_by_name(*sources: dict[str, object] | None) -> dict[str, str]:
+    """Map generation-task name -> instruction from init-frozen config sources."""
+    out: dict[str, str] = {}
+    for src in sources:
+        if not isinstance(src, dict):
+            continue
+        tasks = src.get("generation_tasks")
+        if not isinstance(tasks, list):
+            continue
+        for t in tasks:
+            if not isinstance(t, dict):
+                continue
+            name = t.get("name")
+            instr = t.get("instruction")
+            if isinstance(name, str) and name and isinstance(instr, str) and instr:
+                out[name] = instr
+    return out
+
+
+def fill_missing_task_instructions(
+    params: dict[str, object],
+    *sources: dict[str, object] | None,
+) -> dict[str, object]:
+    """
+    For display: if frozen ``run_params`` tasks lack ``instruction``, copy it from
+    the same run's init-frozen ``pipeline_config`` / ``run_info`` by task name.
+
+    Does not invent prompts; leaves tasks unchanged when the source has no match.
+    Returns a shallow-copied params dict (callers must not write this back to JSON).
+    """
+    tasks = params.get("generation_tasks")
+    if not isinstance(tasks, list) or not tasks:
+        return params
+    by_name = _task_instructions_by_name(*sources)
+    if not by_name:
+        return params
+    filled_tasks: list[object] = []
+    changed = False
+    for t in tasks:
+        if not isinstance(t, dict):
+            filled_tasks.append(t)
+            continue
+        instr = t.get("instruction")
+        if isinstance(instr, str) and instr:
+            filled_tasks.append(t)
+            continue
+        name = t.get("name")
+        lookup = by_name.get(str(name)) if name is not None else None
+        if not lookup:
+            filled_tasks.append(t)
+            continue
+        filled_tasks.append({**t, "instruction": lookup})
+        changed = True
+    if not changed:
+        return params
+    return {**params, "generation_tasks": filled_tasks}
+
+
+def _load_json_if_exists(path: Path) -> dict[str, object] | None:
+    if not path.is_file():
+        return None
+    obj = json.loads(path.read_text(encoding="utf-8"))
+    return obj if isinstance(obj, dict) else None
+
+
+def _run_params_markdown(params: dict[str, object]) -> str:
+    if not params:
+        return "_No run parameters found (missing run_params in JSON / run_info.json)._"
+    lines: list[str] = []
+    order = [
+        "cli_command",
+        "corpus",
+        "words",
+        "num_docs",
+        "models",
+        "aggregation_level",
+        "max_new_tokens",
+        "max_generated_words",
+        "match_abstract_length",
+        "word_count_prompt",
+        "generation_tasks",
+        "batch_size",
+        "chunk_size",
+        "cka_chunk_rows",
+        "device",
+        "local_only",
+        "skip_generate",
+        "skip_cka",
+    ]
+    # Top-level instruction is response-only; never show it alone.
+    skip = frozenset({"instruction"})
+    seen: set[str] = set()
+    for key in order:
+        if key not in params or key in skip:
+            continue
+        seen.add(key)
+        val = params[key]
+        if key == "generation_tasks" and isinstance(val, list):
+            lines.append(f"- **{key}:**")
+            for t in val:
+                if not isinstance(t, dict):
+                    continue
+                lines.append(
+                    f"  - `{t.get('name')}`: max_generated_words={t.get('max_generated_words')}"
+                )
+                instr = t.get("instruction")
+                if isinstance(instr, str) and instr:
+                    lines.append(f"    - instruction: `{instr}`")
+        elif key == "models" and isinstance(val, list):
+            lines.append(f"- **{key}:** {', '.join(str(m) for m in val)}")
+        elif key == "cli_command":
+            lines.append(f"- **{key}:** `{val}`")
+        else:
+            lines.append(f"- **{key}:** `{val}`")
+    for key, val in params.items():
+        if key in seen or key in skip:
+            continue
+        lines.append(f"- **{key}:** `{val}`")
+    return "\n".join(lines)
+
 
 def _sort_segments(segments: list[str]) -> list[str]:
     return sorted(segments, key=lambda s: (_SEGMENT_ORDER.get(s, 99), s))
@@ -296,6 +470,22 @@ def main() -> None:
         else in_path.with_suffix(".md")
     )
 
+    run_dir = (
+        Path(args.out_dir).resolve()
+        if args.out_dir
+        else in_path.parent.parent
+    )
+    pipeline_cfg = _load_json_if_exists(run_dir / "pipeline_config.json")
+    run_info = _load_json_if_exists(run_dir / "run_info.json")
+    # Prefer run_params frozen into the JSON at CKA time for numeric/CLI fields.
+    # Fill missing per-task instructions from this out_dir's init-frozen config
+    # (display only; do not rewrite the CKA JSON).
+    frozen = data.get("run_params")
+    if isinstance(frozen, dict) and frozen:
+        run_params = fill_missing_task_instructions(frozen, pipeline_cfg, run_info)
+    else:
+        run_params = build_run_params(pipeline_cfg, run_info)
+
     results = data.get("results", [])
     aggregated = data.get("aggregated", [])
     categories = sorted(data.get("categories", []))
@@ -347,7 +537,10 @@ def main() -> None:
     lines.append(f"- Categories: {', '.join(categories) if categories else '(none)'}")
     lines.append(f"- Per-category pair comparisons: {len(results)}")
     lines.append(f"- Pooled pair comparisons (all doc_id aligned rows): {len(aggregated)}")
-
+    lines.append("")
+    lines.append("## Run parameters")
+    lines.append("")
+    lines.append(_run_params_markdown(run_params))
     lines.append("")
 
     pool_key = "(all documents)"

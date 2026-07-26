@@ -22,6 +22,30 @@ _A / B: model and segment for each side (within-model different segments, then c
 - Per-category pair comparisons: 30
 - Pooled pair comparisons (all doc_id aligned rows): 15
 
+## Run parameters
+
+- **cli_command:** `.\run_categorized_corpus.py --corpus .\data\wiki_tree_corpus_for_cka.jsonl --out_dir .\outputs\my_run9 --models F:\quantas\models\google\gemma-3-1b-it F:\quantas\models\Qwen\Qwen3.5-0.8B --aggregation_level document --words 200 --max_new_tokens 1500 --max_generated_words 200 --word_count_prompt --summarize --batch_size 4 --chunk_size 768 --stage all --summarize_words 50`
+- **corpus:** `F:\code\Independent Study\data\wiki_tree_corpus_for_cka.jsonl`
+- **words:** `200`
+- **num_docs:** `200`
+- **models:** F:\quantas\models\google\gemma-3-1b-it, F:\quantas\models\Qwen\Qwen3.5-0.8B
+- **aggregation_level:** `document`
+- **max_new_tokens:** `1500`
+- **max_generated_words:** `200`
+- **word_count_prompt:** `True`
+- **generation_tasks:**
+  - `response`: max_generated_words=200
+    - instruction: `In {word_count} words, explain the following: {title}`
+  - `summary`: max_generated_words=50
+    - instruction: `Summarize the following in {word_count} words: {excerpt}`
+- **batch_size:** `4`
+- **chunk_size:** `768`
+- **cka_chunk_rows:** `4096`
+- **device:** `cuda`
+- **local_only:** `True`
+- **skip_generate:** `False`
+- **skip_cka:** `False`
+
 
 ## Pooled (all documents)
 

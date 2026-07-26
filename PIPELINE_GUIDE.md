@@ -193,7 +193,7 @@ See [CLI_REFERENCE.md](CLI_REFERENCE.md) for the complete table including `--sta
 
 ## CKA row slicing (by category or doc)
 
-Aggregated `.npy` files store one row per embedding unit (word or document, based on aggregation) with metadata (`doc_id`, `category`, `title`, `segment`, …). Newer runs also write a top-level `doc_ids` int64 array aligned with embedding rows (`doc_ids[i] == meta[i]["doc_id"]`; token files use the same field alongside `token_meta`). Load with `cka_word_embeddings.load_doc_ids(path)` (falls back to metadata for older files). Global CKA uses every row. To restrict analysis:
+Aggregated `.npy` files store one row per embedding unit (word or document, based on aggregation) with metadata (`doc_id`, `category`, `title`, `segment`, …). Global CKA uses every row. To restrict analysis:
 
 ```powershell
 & $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage cka `

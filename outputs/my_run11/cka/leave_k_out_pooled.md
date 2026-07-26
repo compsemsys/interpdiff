@@ -3,7 +3,7 @@
 - Source: `F:\code\Independent Study\outputs\my_run11\cka\document_cka_by_category.json`
 - drop_k=10, n_reps=100, seed=0
 - Pairs: 9
-- Elapsed: 17.79s
+- Elapsed: 19.90s
 
 | A | B | Full CKA | Leave-k-out mean | Leave-k-out std | Rows |
 | --- | --- | --- | --- | --- | --- |

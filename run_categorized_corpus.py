@@ -75,7 +75,7 @@ from local_llm_utils import (
     sanitize_model_slug,
 )
 from token_embed_utils import pick_device
-from word_merge_agnostic import flatten_token_meta, merge_token_embeddings_to_words
+from word_merge_agnostic import merge_token_embeddings_to_words
 
 STAGES_ORDER = (
     "init",
@@ -100,75 +100,16 @@ def load_corpus_jsonl(path: str) -> list[dict[str, Any]]:
     return rows
 
 
-def doc_ids_array_from_meta(meta: list[dict[str, Any]]) -> np.ndarray:
-    """Parallel int64 ``doc_id`` for each embedding row (same order as ``meta``)."""
-    return np.asarray([int(m["doc_id"]) for m in meta], dtype=np.int64)
-
-
-def _validate_doc_ids_vs_meta(
-    doc_ids: np.ndarray, meta: list[dict[str, Any]], *, path: str
-) -> None:
-    if len(doc_ids) != len(meta):
-        raise ValueError(
-            f"doc_ids/meta length mismatch for {path}: {len(doc_ids)} vs {len(meta)}"
-        )
-    for i, (did, m) in enumerate(zip(doc_ids, meta)):
-        if int(m["doc_id"]) != int(did):
-            raise ValueError(
-                f"doc_ids/meta mismatch for {path} at row {i}: "
-                f"doc_ids[{i}]={int(did)} meta.doc_id={int(m['doc_id'])}"
-            )
-
-
 def save_token_npy(
     path: str, embeddings: np.ndarray, token_meta: list[dict[str, Any]]
 ) -> None:
-    """
-    Save token embeddings with explicit per-row ``doc_ids``.
-
-    Payload: embeddings, token_meta, doc_ids (int64, aligned with embedding rows).
-    """
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    flat_meta = flatten_token_meta(token_meta)
-    if embeddings.shape[0] != len(flat_meta):
-        raise ValueError(
-            f"embeddings/token_meta length mismatch for {path}: "
-            f"{embeddings.shape[0]} vs {len(flat_meta)}"
-        )
-    doc_ids = doc_ids_array_from_meta(flat_meta)
-    np.save(
-        path,
-        {
-            "embeddings": embeddings,
-            "token_meta": token_meta,
-            "doc_ids": doc_ids,
-        },
-        allow_pickle=True,
-    )
+    np.save(path, {"embeddings": embeddings, "token_meta": token_meta}, allow_pickle=True)
 
 
 def save_word_npy(path: str, embeddings: np.ndarray, meta: list[dict[str, Any]]) -> None:
-    """
-    Save word/document embeddings with explicit per-row ``doc_ids``.
-
-    Payload: embeddings, meta, doc_ids (int64; ``doc_ids[i] == meta[i]['doc_id']``).
-    """
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    if embeddings.shape[0] != len(meta):
-        raise ValueError(
-            f"embeddings/meta length mismatch for {path}: "
-            f"{embeddings.shape[0]} vs {len(meta)}"
-        )
-    doc_ids = doc_ids_array_from_meta(meta)
-    np.save(
-        path,
-        {
-            "embeddings": embeddings,
-            "meta": meta,
-            "doc_ids": doc_ids,
-        },
-        allow_pickle=True,
-    )
+    np.save(path, {"embeddings": embeddings, "meta": meta}, allow_pickle=True)
 
 
 def _instruction_placeholders(s: str) -> set[str]:
@@ -598,9 +539,6 @@ def _load_embeddings_meta(path: str) -> tuple[np.ndarray, list[dict[str, Any]]]:
     meta = list(data["meta"])
     if emb.shape[0] != len(meta):
         raise ValueError(f"embeddings/meta length mismatch for {path}: {emb.shape[0]} vs {len(meta)}")
-    # Newer runs store a top-level doc_ids array; older pickles omit it.
-    if "doc_ids" in data:
-        _validate_doc_ids_vs_meta(np.asarray(data["doc_ids"]), meta, path=path)
     return emb, meta
 
 
@@ -638,6 +576,60 @@ def _align_doc_embeddings_by_doc_id(
     ia = [idx_a[d] for d in shared]
     ib = [idx_b[d] for d in shared]
     return emb_a[ia], emb_b[ib], shared
+
+
+def _document_cka_run_params(
+    cfg: dict[str, Any], run_info: dict[str, Any]
+) -> dict[str, Any]:
+    """Subset of pipeline settings stored on document_cka_by_category.json.
+
+    Written at CKA time from the frozen config / run_info for that run. Omits
+    top-level ``instruction`` (response-only; incomplete when a summary task
+    exists). Each generation task keeps its own ``instruction`` plus word cap.
+    Omits per-task ``word_count_prompt`` (that flag means the response CLI
+    preset was used, not whether ``{word_count}`` appears in the prompt).
+    """
+    keys = (
+        "corpus",
+        "words",
+        "models",
+        "aggregation_level",
+        "max_new_tokens",
+        "max_generated_words",
+        "match_abstract_length",
+        "word_count_prompt",
+        "generation_tasks",
+        "num_docs",
+        "cli_command",
+        "device",
+        "batch_size",
+        "chunk_size",
+        "skip_generate",
+        "skip_cka",
+        "cka_chunk_rows",
+        "local_only",
+    )
+    merged: dict[str, Any] = {}
+    for src in (cfg, run_info):
+        for k in keys:
+            if k in src:
+                merged[k] = src[k]
+    tasks = merged.get("generation_tasks")
+    if isinstance(tasks, list):
+        compact: list[dict[str, Any]] = []
+        for t in tasks:
+            if not isinstance(t, dict):
+                continue
+            entry: dict[str, Any] = {
+                "name": t.get("name"),
+                "max_generated_words": t.get("max_generated_words"),
+            }
+            if "instruction" in t:
+                entry["instruction"] = t.get("instruction")
+            compact.append(entry)
+        if compact:
+            merged["generation_tasks"] = compact
+    return merged
 
 
 def _document_category_matrix(
@@ -1327,6 +1319,7 @@ def run_stage_cka(
                 "models": slugs,
                 "skip_generate": bool(skip_generate),
                 "chunk_rows": int(cka_chunk_rows),
+                "run_params": _document_cka_run_params(cfg, run_info),
                 "results": by_cat.get("results", []),
                 "aggregated": by_cat.get("aggregated", []),
                 "aggregated_focused": by_cat.get("aggregated_focused", {}),
