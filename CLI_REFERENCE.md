@@ -264,10 +264,12 @@ Standalone pairwise linear CKA on two aligned `.npy` embedding files (outside th
 | `--a` | *(required)* | First `.npy` (e.g. `word_embeddings_merged_agnostic.npy`). |
 | `--b` | *(required)* | Second `.npy`. |
 | `--sample_size` | *(none)* | Random row subset for quick runs. |
-| `--seed` | `0` | RNG seed for subsampling / bootstrap. |
+| `--seed` | `0` | RNG seed for subsampling / bootstrap / leave-k-out. |
 | `--per_doc` | off | Also compute per-`doc_id` CKA. |
 | `--min_doc_rows` | `32` | Skip docs with fewer rows for per-doc CKA. |
 | `--bootstrap` | `0` | Bootstrap resample count (`0` = off). |
+| `--leave_k_out` | `0` | Leave-k-out rep count (`0` = off): drop `--drop_k` random rows each rep, report mean/std. |
+| `--drop_k` | `10` | Rows dropped per leave-k-out rep. |
 | `--json_out` | *(none)* | Write JSON report to this path. |
 | `--chunk_rows` | `8192` | Chunked CKA block size (`0` = dense, higher RAM). |
 | `--cka_filter` | *(none)* | Repeatable `KEY=VALUE` row filters (AND). |
@@ -289,6 +291,26 @@ Render `document_cka_by_category.json` as a markdown table.
 
 ```powershell
 .\.venv313\Scripts\python.exe .\scripts\render_document_cka_report.py --out_dir ".\outputs\my_run5"
+```
+
+---
+
+## `scripts/cka_leave_k_out.py`
+
+Post-hoc leave-k-out (delete-k) CKA stability on the focused pooled document pairs from an existing run (`aggregated_focused` in `document_cka_by_category.json`). Does not re-run the pipeline.
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--out_dir` | *(required)* | Pipeline run directory. |
+| `--input` | `<out_dir>/cka/document_cka_by_category.json` | Override JSON path. |
+| `--drop_k` | `10` | Rows dropped per rep. |
+| `--n_reps` | `100` | Number of leave-k-out repetitions. |
+| `--seed` | `0` | RNG seed. |
+| `--json_out` | `<out_dir>/cka/leave_k_out_pooled.json` | JSON report path. |
+| `--md_out` | `<out_dir>/cka/leave_k_out_pooled.md` | Markdown table path. |
+
+```powershell
+.\.venv313\Scripts\python.exe .\scripts\cka_leave_k_out.py --out_dir ".\outputs\my_run11"
 ```
 
 ---

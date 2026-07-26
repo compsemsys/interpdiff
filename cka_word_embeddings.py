@@ -11,7 +11,8 @@ Key functions:
 - ``row_indices_meta_match``: resolve metadata/doc-id row filters to index arrays.
 - ``linear_cka_chunked``: memory-aware CKA accumulation across row blocks.
 - ``validate_aligned_meta``: enforce row identity alignment before any comparison.
-- ``main``: CLI entry for quick comparisons, filtering, bootstrap, and JSON reporting.
+- ``run_leave_k_out_cka``: delete-k row stability (drop random rows, recompute CKA).
+- ``main``: CLI entry for quick comparisons, filtering, bootstrap, leave-k-out, and JSON reporting.
 
 Example:
   python cka_word_embeddings.py \\
@@ -51,8 +52,39 @@ def load_embeddings_and_meta(
 ) -> tuple[np.ndarray, list[dict[str, Any]]]:
     data = np.load(path, allow_pickle=True).item()
     emb = np.asarray(data["embeddings"], dtype=dtype)
-    meta = data["meta"]
+    meta = list(data["meta"])
+    # Newer runs include top-level doc_ids[i] == meta[i]["doc_id"]; older files omit it.
+    if "doc_ids" in data:
+        doc_ids = np.asarray(data["doc_ids"])
+        if len(doc_ids) != emb.shape[0]:
+            raise ValueError(
+                f"doc_ids/embeddings length mismatch for {path}: "
+                f"{len(doc_ids)} vs {emb.shape[0]}"
+            )
+        for i, (did, m) in enumerate(zip(doc_ids, meta)):
+            if int(m["doc_id"]) != int(did):
+                raise ValueError(
+                    f"doc_ids/meta mismatch for {path} at row {i}: "
+                    f"doc_ids[{i}]={int(did)} meta.doc_id={int(m['doc_id'])}"
+                )
     return emb, meta
+
+
+def load_doc_ids(path: str) -> np.ndarray:
+    """
+    Explicit per-row document IDs for an embeddings ``.npy``.
+
+    Prefers the top-level ``doc_ids`` array written by newer pipeline runs;
+    falls back to ``meta[i]['doc_id']`` for older files.
+    """
+    data = np.load(path, allow_pickle=True).item()
+    if "doc_ids" in data:
+        return np.asarray(data["doc_ids"], dtype=np.int64)
+    meta_key = "meta" if "meta" in data else "token_meta"
+    meta = data[meta_key]
+    if meta and isinstance(meta[0], list):
+        meta = [item for chunk in meta for item in chunk]
+    return np.asarray([int(m["doc_id"]) for m in meta], dtype=np.int64)
 
 
 def meta_key(m: dict[str, Any]) -> tuple:
@@ -361,6 +393,43 @@ def run_bootstrap(
     return float(np.mean(scores)), float(np.std(scores)), float(q[0]), float(q[1])
 
 
+def run_leave_k_out_cka(
+    X: np.ndarray,
+    Y: np.ndarray,
+    rng: np.random.Generator,
+    *,
+    drop_k: int = 10,
+    n_reps: int = 100,
+) -> tuple[float, float, np.ndarray]:
+    """
+    Leave-k-out (delete-k) CKA stability: drop ``drop_k`` random rows from both
+    matrices, compute linear CKA on the remainder, repeat ``n_reps`` times.
+
+    Returns ``(mean, std, scores)`` where ``scores`` has length ``n_reps``.
+    """
+    if X.shape[0] != Y.shape[0]:
+        raise ValueError(f"Same n required: {X.shape[0]} vs {Y.shape[0]}")
+    n = int(X.shape[0])
+    drop_k = int(drop_k)
+    n_reps = int(n_reps)
+    if n_reps < 1:
+        raise ValueError(f"n_reps must be >= 1, got {n_reps}")
+    if drop_k < 1 or drop_k >= n:
+        raise ValueError(f"drop_k must satisfy 1 <= drop_k < n ({n}), got {drop_k}")
+    if n - drop_k < 2:
+        raise ValueError(
+            f"Need at least 2 rows after dropping: n={n}, drop_k={drop_k}"
+        )
+
+    scores = np.empty(n_reps, dtype=np.float64)
+    for r in range(n_reps):
+        drop = rng.choice(n, size=drop_k, replace=False)
+        mask = np.ones(n, dtype=bool)
+        mask[drop] = False
+        scores[r] = linear_cka(X[mask], Y[mask])
+    return float(np.mean(scores)), float(np.std(scores)), scores
+
+
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Linear CKA between two aligned word embedding .npy files"
@@ -390,6 +459,19 @@ def main() -> None:
         type=int,
         default=0,
         help="Number of bootstrap resamples (0 = off)",
+    )
+    p.add_argument(
+        "--leave_k_out",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Leave-k-out reps: drop --drop_k random rows each time (0 = off)",
+    )
+    p.add_argument(
+        "--drop_k",
+        type=int,
+        default=10,
+        help="Rows to drop per leave-k-out rep (default 10)",
     )
     p.add_argument(
         "--json_out",
@@ -510,6 +592,26 @@ def main() -> None:
         print(
             f"Bootstrap (n={args.bootstrap}): mean={mean_b:.6f} std={std_b:.6f} "
             f"95% CI [{lo:.6f}, {hi:.6f}] ({boot_s:.2f}s)"
+        )
+
+    if args.leave_k_out > 0:
+        t_lko = time.perf_counter()
+        mean_l, std_l, scores_l = run_leave_k_out_cka(
+            X, Y, rng, drop_k=args.drop_k, n_reps=args.leave_k_out
+        )
+        lko_s = time.perf_counter() - t_lko
+        report["leave_k_out"] = {
+            "n_reps": args.leave_k_out,
+            "drop_k": args.drop_k,
+            "n_rows_kept": n - args.drop_k,
+            "mean": mean_l,
+            "std": std_l,
+            "scores": scores_l.tolist(),
+            "seconds": lko_s,
+        }
+        print(
+            f"Leave-k-out (drop_k={args.drop_k}, n_reps={args.leave_k_out}): "
+            f"mean={mean_l:.6f} std={std_l:.6f} ({lko_s:.2f}s)"
         )
 
     if args.per_doc:

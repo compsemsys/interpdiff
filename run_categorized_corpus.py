@@ -75,7 +75,7 @@ from local_llm_utils import (
     sanitize_model_slug,
 )
 from token_embed_utils import pick_device
-from word_merge_agnostic import merge_token_embeddings_to_words
+from word_merge_agnostic import flatten_token_meta, merge_token_embeddings_to_words
 
 STAGES_ORDER = (
     "init",
@@ -100,16 +100,75 @@ def load_corpus_jsonl(path: str) -> list[dict[str, Any]]:
     return rows
 
 
+def doc_ids_array_from_meta(meta: list[dict[str, Any]]) -> np.ndarray:
+    """Parallel int64 ``doc_id`` for each embedding row (same order as ``meta``)."""
+    return np.asarray([int(m["doc_id"]) for m in meta], dtype=np.int64)
+
+
+def _validate_doc_ids_vs_meta(
+    doc_ids: np.ndarray, meta: list[dict[str, Any]], *, path: str
+) -> None:
+    if len(doc_ids) != len(meta):
+        raise ValueError(
+            f"doc_ids/meta length mismatch for {path}: {len(doc_ids)} vs {len(meta)}"
+        )
+    for i, (did, m) in enumerate(zip(doc_ids, meta)):
+        if int(m["doc_id"]) != int(did):
+            raise ValueError(
+                f"doc_ids/meta mismatch for {path} at row {i}: "
+                f"doc_ids[{i}]={int(did)} meta.doc_id={int(m['doc_id'])}"
+            )
+
+
 def save_token_npy(
     path: str, embeddings: np.ndarray, token_meta: list[dict[str, Any]]
 ) -> None:
+    """
+    Save token embeddings with explicit per-row ``doc_ids``.
+
+    Payload: embeddings, token_meta, doc_ids (int64, aligned with embedding rows).
+    """
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    np.save(path, {"embeddings": embeddings, "token_meta": token_meta}, allow_pickle=True)
+    flat_meta = flatten_token_meta(token_meta)
+    if embeddings.shape[0] != len(flat_meta):
+        raise ValueError(
+            f"embeddings/token_meta length mismatch for {path}: "
+            f"{embeddings.shape[0]} vs {len(flat_meta)}"
+        )
+    doc_ids = doc_ids_array_from_meta(flat_meta)
+    np.save(
+        path,
+        {
+            "embeddings": embeddings,
+            "token_meta": token_meta,
+            "doc_ids": doc_ids,
+        },
+        allow_pickle=True,
+    )
 
 
 def save_word_npy(path: str, embeddings: np.ndarray, meta: list[dict[str, Any]]) -> None:
+    """
+    Save word/document embeddings with explicit per-row ``doc_ids``.
+
+    Payload: embeddings, meta, doc_ids (int64; ``doc_ids[i] == meta[i]['doc_id']``).
+    """
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    np.save(path, {"embeddings": embeddings, "meta": meta}, allow_pickle=True)
+    if embeddings.shape[0] != len(meta):
+        raise ValueError(
+            f"embeddings/meta length mismatch for {path}: "
+            f"{embeddings.shape[0]} vs {len(meta)}"
+        )
+    doc_ids = doc_ids_array_from_meta(meta)
+    np.save(
+        path,
+        {
+            "embeddings": embeddings,
+            "meta": meta,
+            "doc_ids": doc_ids,
+        },
+        allow_pickle=True,
+    )
 
 
 def _instruction_placeholders(s: str) -> set[str]:
@@ -539,6 +598,9 @@ def _load_embeddings_meta(path: str) -> tuple[np.ndarray, list[dict[str, Any]]]:
     meta = list(data["meta"])
     if emb.shape[0] != len(meta):
         raise ValueError(f"embeddings/meta length mismatch for {path}: {emb.shape[0]} vs {len(meta)}")
+    # Newer runs store a top-level doc_ids array; older pickles omit it.
+    if "doc_ids" in data:
+        _validate_doc_ids_vs_meta(np.asarray(data["doc_ids"]), meta, path=path)
     return emb, meta
 
 

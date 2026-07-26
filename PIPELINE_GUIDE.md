@@ -193,7 +193,7 @@ See [CLI_REFERENCE.md](CLI_REFERENCE.md) for the complete table including `--sta
 
 ## CKA row slicing (by category or doc)
 
-Aggregated `.npy` files store one row per embedding unit (word or document, based on aggregation) with metadata (`doc_id`, `category`, `title`, `segment`, …). Global CKA uses every row. To restrict analysis:
+Aggregated `.npy` files store one row per embedding unit (word or document, based on aggregation) with metadata (`doc_id`, `category`, `title`, `segment`, …). Newer runs also write a top-level `doc_ids` int64 array aligned with embedding rows (`doc_ids[i] == meta[i]["doc_id"]`; token files use the same field alongside `token_meta`). Load with `cka_word_embeddings.load_doc_ids(path)` (falls back to metadata for older files). Global CKA uses every row. To restrict analysis:
 
 ```powershell
 & $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage cka `
@@ -240,6 +240,8 @@ The standalone script supports the same filters:
   cka/
     cka_index.json
     document_cka_by_category.json   (if --aggregation_level document|both)
+    leave_k_out_pooled.json         (optional; scripts/cka_leave_k_out.py)
+    leave_k_out_pooled.md           (optional; scripts/cka_leave_k_out.py)
     excerpt__<a>__vs__<b>.json
     excerpt_document__<a>__vs__<b>.json      (if --aggregation_level document|both)
     excerpt__<a>__vs__<b>__<slice_suffix>.json   (optional, when --cka_filter / --cka_doc_ids used)
@@ -257,7 +259,9 @@ Exact filenames follow `sanitize_model_slug()` (derived from the model directory
 
 ## Ad-hoc CKA on existing `.npy` files
 
-For manual pairwise checks outside the pipeline directory layout, see `cka_word_embeddings.py`.
+For manual pairwise checks outside the pipeline directory layout, see `cka_word_embeddings.py` (includes optional `--bootstrap` and `--leave_k_out` / `--drop_k`).
+
+Optional post-hoc **leave-k-out** stability on a finished run’s focused pooled document pairs: `scripts/cka_leave_k_out.py --out_dir <run>` (defaults: drop 10 rows, 100 reps; writes `cka/leave_k_out_pooled.json` and `.md`).
 
 ## Troubleshooting
 
