@@ -1,0 +1,41 @@
+{
+  "corpus": "F:\\code\\Independent Study\\data\\wiki_tree_corpus_for_cka.jsonl",
+  "words": 1000,
+  "models": [
+    "F:\\quantas\\models\\google\\gemma-3-1b-it",
+    "F:\\quantas\\models\\Qwen\\Qwen3.5-0.8B"
+  ],
+  "instruction": "In {word_count} words, explain the following: {title}",
+  "instruction_placeholders": [
+    "title",
+    "word_count"
+  ],
+  "word_count_prompt": true,
+  "generation_tasks": [
+    {
+      "name": "response",
+      "subdir": "responses",
+      "instruction": "In {word_count} words, explain the following: {title}",
+      "max_generated_words": 200,
+      "word_count_prompt": true
+    },
+    {
+      "name": "summary",
+      "subdir": "summaries",
+      "instruction": "Summarize the following in {word_count} words: {excerpt}",
+      "max_generated_words": 200,
+      "word_count_prompt": false
+    }
+  ],
+  "skip_generate": false,
+  "skip_cka": false,
+  "cka_chunk_rows": 4096,
+  "max_new_tokens": 3000,
+  "max_generated_words": 200,
+  "match_abstract_length": false,
+  "batch_size": 4,
+  "chunk_size": 768,
+  "local_only": true,
+  "device": "cuda",
+  "aggregation_level": "document"
+}
