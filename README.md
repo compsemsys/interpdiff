@@ -1,4 +1,6 @@
-# Independent Study
+# Exploring the interpretive differences between language models through representational similarity analysis
+
+This repository contains all code and results described in Kenyon & Stine (2026). Note that experiments 1, 2, and 3 from the paper correspond to runs 12, 13, and 8, respectively, here in the repository. 
 
 This project gets wiki abstracts, runs them through LLMs to get token embeddings, mean-pools into document embeddings, then analyzes using CKA.
 
