@@ -30,7 +30,7 @@ Main pipeline CLI. Alias: `pipeline_embed_explain_cka.py` (same `main()`).
 
 **Required every invocation:** `--corpus`, `--models` (one or more local checkpoint directories).
 
-**Default stage:** `--stage all` (runs `init` → `generate` → `embed_excerpts` → `embed_responses` → `cka`).
+**Default stage:** `--stage all` (runs `init` → `generate` → `embed_excerpts` → `embed_responses` → `embed_cross_responses` → `cka`).
 
 ### All flags
 
@@ -39,11 +39,11 @@ Main pipeline CLI. Alias: `pipeline_embed_explain_cka.py` (same `main()`).
 | `--corpus` | *(required)* | yes | all | JSONL with `doc_id`, `category`, `title`, `text`. Path must match config when resuming. |
 | `--out_dir` | auto on `init` only | — | all | Run directory. Required after `init`. If omitted on `init`, creates `outputs/categorized_<timestamp>/`. |
 | `--models` | *(required)* | yes | generate, embed_*, cka | Local model checkpoint dirs. Order and paths must match `pipeline_config.json` when resuming. |
-| `--stage` | `all` | — | — | `all`, `init`, `generate`, `embed_excerpts`, `embed_responses`, or `cka`. |
+| `--stage` | `all` | — | — | `all`, `init`, `generate`, `embed_excerpts`, `embed_responses`, `embed_cross_responses`, or `cka`. |
 | `--words` | `200` | yes | init | First N whitespace-delimited words of each doc's `text` used as the excerpt. |
 | `--instruction` | `Explain the following: {title}` | yes | generate | Prompt template. Placeholders: `{title}`, `{excerpt}`, `{word_count}`. Must contain at least one of `{title}` or `{excerpt}`. `{word_count}` requires `--max_generated_words` or `--match_abstract_length`. |
 | `--word_count_prompt` | off | yes | generate | Preset: `In {word_count} words, explain the following: {title}`. Requires `--max_generated_words` or `--match_abstract_length`. Overrides `--instruction`. |
-| `--summarize` | off | yes | generate, embed_responses, cka | **Additive** second generation task (segment `summary`). Runs *alongside* the response task from the same model load; outputs under `summaries/<slug>/`, embedded and CKA-compared as an extra segment (full model×segment matrix). Re-pass to match config on staged runs. |
+| `--summarize` | off | yes | generate, embed_responses, embed_cross_responses, cka | **Additive** second generation task (segment `summary`). Runs *alongside* the response task from the same model load; outputs under `summaries/<slug>/`, embedded and CKA-compared as an extra segment (full model×segment matrix). Re-pass to match config on staged runs. |
 | `--summarize_instruction` | `Summarize the following in {word_count} words: {excerpt}` | yes | generate | Prompt template for the `--summarize` task. Placeholders: `{title}`, `{excerpt}`, `{word_count}` (must contain at least one of `{title}`/`{excerpt}`). |
 | `--summarize_words` | *(defaults to `--max_generated_words`)* | yes | generate | Word target/cap for the summary (fills `{word_count}` and hard-caps the generated summary). Omit to reuse the response task's word count. Incompatible with `--match_abstract_length`. |
 | `--max_new_tokens` | `256` | yes | generate | Max **new** tokens per completion (`model.generate`). Must match config on `--stage generate`. Shared ceiling across all generation tasks. |
@@ -52,7 +52,7 @@ Main pipeline CLI. Alias: `pipeline_embed_explain_cka.py` (same `main()`).
 | `--batch_size` | `12` | yes | embed_* | Embedding batch size (grouped by sequence length). |
 | `--chunk_size` | `1024` | yes | embed_* | Max tokens per forward pass when embedding long texts. |
 | `--aggregation_level` | `word` | yes | embed_*, cka | `word`, `document`, or `both`. Controls which `.npy` aggregation outputs are written and which CKA pairs run. |
-| `--skip_generate` | off | yes | generate, embed_responses, cka | Excerpt-only run: no causal LM responses; no response embeddings or response CKA. |
+| `--skip_generate` | off | yes | generate, embed_responses, embed_cross_responses, cka | Excerpt-only run: no causal LM responses; no response embeddings or response CKA. |
 | `--skip_cka` | off | yes | cka | Skip writing `cka/` outputs. |
 | `--cka_chunk_rows` | `4096` | yes | cka | Row chunk size for chunked linear CKA. |
 | `--allow_remote` | off (local only) | yes | generate, embed_* | Allow Hugging Face Hub downloads. Default: local files only. Must match config when resuming. |
@@ -264,12 +264,13 @@ Standalone pairwise linear CKA on two aligned `.npy` embedding files (outside th
 | `--a` | *(required)* | First `.npy` (e.g. `word_embeddings_merged_agnostic.npy`). |
 | `--b` | *(required)* | Second `.npy`. |
 | `--sample_size` | *(none)* | Random row subset for quick runs. |
-| `--seed` | `0` | RNG seed for subsampling / bootstrap / leave-k-out. |
+| `--seed` | `0` | RNG seed for subsampling / bootstrap / leave-k-out / row permutation. |
 | `--per_doc` | off | Also compute per-`doc_id` CKA. |
 | `--min_doc_rows` | `32` | Skip docs with fewer rows for per-doc CKA. |
 | `--bootstrap` | `0` | Bootstrap resample count (`0` = off). |
 | `--leave_k_out` | `0` | Leave-k-out rep count (`0` = off): drop `--drop_k` random rows each rep, report mean/std. |
 | `--drop_k` | `10` | Rows dropped per leave-k-out rep. |
+| `--row_permutation` | `0` | Row-permutation null rep count (`0` = off): shuffle Y rows each rep, report mean/std. |
 | `--json_out` | *(none)* | Write JSON report to this path. |
 | `--chunk_rows` | `8192` | Chunked CKA block size (`0` = dense, higher RAM). |
 | `--cka_filter` | *(none)* | Repeatable `KEY=VALUE` row filters (AND). |
@@ -311,6 +312,25 @@ Post-hoc leave-k-out (delete-k) CKA stability on the focused pooled document pai
 
 ```powershell
 .\.venv313\Scripts\python.exe .\scripts\cka_leave_k_out.py --out_dir ".\outputs\my_run11"
+```
+
+---
+
+## `scripts/cka_row_permutation.py`
+
+Post-hoc topic-correspondence **row-permutation** CKA null on the same focused pooled document pairs as leave-k-out. Each rep randomly permutes rows of one representation (Y) while keeping the other fixed; reports mean/std. Does not re-run the pipeline.
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--out_dir` | *(required)* | Pipeline run directory. |
+| `--input` | `<out_dir>/cka/document_cka_by_category.json` | Override JSON path. |
+| `--n_reps` | `100` | Number of permutation repetitions. |
+| `--seed` | `42` | RNG seed. |
+| `--json_out` | `<out_dir>/cka/row_permutation_pooled.json` | JSON report path. |
+| `--md_out` | `<out_dir>/cka/row_permutation_pooled.md` | Markdown table path. |
+
+```powershell
+.\.venv313\Scripts\python.exe .\scripts\cka_row_permutation.py --out_dir ".\outputs\my_run12"
 ```
 
 ---

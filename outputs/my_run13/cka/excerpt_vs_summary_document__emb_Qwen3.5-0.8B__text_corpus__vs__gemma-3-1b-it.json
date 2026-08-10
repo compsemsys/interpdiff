@@ -1,0 +1,19 @@
+{
+  "segment": "excerpt__vs__summary",
+  "aggregation": "document",
+  "comparison": "same_embedder_excerpt_vs_foreign_text",
+  "text_source_a": "corpus",
+  "text_source_b": "gemma-3-1b-it",
+  "embedder_a": "Qwen3.5-0.8B",
+  "embedder_b": "Qwen3.5-0.8B",
+  "model_a": "Qwen3.5-0.8B",
+  "model_b": "Qwen3.5-0.8B",
+  "path_a": "F:\\code\\Independent Study\\outputs\\my_run13\\excerpts\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+  "path_b": "F:\\code\\Independent Study\\outputs\\my_run13\\summaries\\gemma-3-1b-it\\by_embedder\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+  "n_rows": 200,
+  "n_rows_total_a": 200,
+  "n_rows_total_b": 200,
+  "pairing": "doc_id_aligned",
+  "row_slice": null,
+  "linear_cka": 0.8267704683181804
+}

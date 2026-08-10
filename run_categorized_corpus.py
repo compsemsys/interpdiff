@@ -14,8 +14,13 @@ Stages (use ``--stage`` to run one at a time; later stages require the same
    (still capped by ``--max_new_tokens`` and EOS); hyphenated forms count as one word.
 3. **embed_excerpts** — token + aggregated npy under ``excerpts/<slug>/``.
 4. **embed_responses** — token + aggregated npy for each generation task under its dir
-   (``responses/<slug>/``, ``summaries/<slug>/``, …), tagged with the task's segment label.
-5. **cka** — pairwise linear CKA under ``cka/`` across all model × segment pairs.
+   (``responses/<slug>/``, ``summaries/<slug>/``, …), tagged with the task's segment label
+   (own-embed: the model that wrote the text also embeds it).
+5. **embed_cross_responses** — cross-embed generations: each model embeds the other models'
+   response/summary text under ``<task>/<text_slug>/by_embedder/<embedder_slug>/``.
+6. **cka** — pairwise linear CKA under ``cka/`` across all model × segment pairs; when
+   cross-embed artifacts exist, also records same-text cross-embedder and same-embedder
+   cross-text comparisons.
 
 Default ``--stage all`` runs the full pipeline in one process. With ``--resume``
 (default: on for single stages), existing outputs are skipped unless ``--overwrite``.
@@ -23,7 +28,8 @@ Default ``--stage all`` runs the full pipeline in one process. With ``--resume``
 Key functions:
 - ``run_stage_init``: validates/records run config and writes excerpt corpus artifacts.
 - ``run_stage_generate``: generates model responses from excerpt-derived prompts.
-- ``run_stage_embed_excerpts`` / ``run_stage_embed_responses``: writes token + pooled embeddings.
+- ``run_stage_embed_excerpts`` / ``run_stage_embed_responses`` /
+  ``run_stage_embed_cross_responses``: writes token + pooled embeddings.
 - ``run_stage_cka``: computes pairwise CKA outputs and optional document-by-category matrix.
 - ``main``: CLI parsing, staged/full-run dispatch, and resume/overwrite behavior.
 
@@ -38,6 +44,8 @@ Example (pause between heavy steps):
     --models F:/m/gemma-3-1b-it F:/m/Qwen3.5-0.8B --stage embed_excerpts
   python run_categorized_corpus.py --corpus data/corpus.jsonl --out_dir outputs/run_a \\
     --models F:/m/gemma-3-1b-it F:/m/Qwen3.5-0.8B --stage embed_responses
+  python run_categorized_corpus.py --corpus data/corpus.jsonl --out_dir outputs/run_a \\
+    --models F:/m/gemma-3-1b-it F:/m/Qwen3.5-0.8B --stage embed_cross_responses
   python run_categorized_corpus.py --corpus data/corpus.jsonl --out_dir outputs/run_a \\
     --models F:/m/gemma-3-1b-it F:/m/Qwen3.5-0.8B --stage cka
 """
@@ -63,6 +71,8 @@ from cka_word_embeddings import (
     pairwise_linear_cka_from_paths,
     parse_doc_ids_arg,
     parse_meta_filter_arg,
+    row_indices_meta_match,
+    slice_spec_dict,
 )
 from doc_text import first_n_words
 from doc_merge_agnostic import merge_token_embeddings_to_docs
@@ -82,8 +92,10 @@ STAGES_ORDER = (
     "generate",
     "embed_excerpts",
     "embed_responses",
+    "embed_cross_responses",
     "cka",
 )
+BY_EMBEDDER_DIR = "by_embedder"
 # The config captures immutable run inputs; state tracks which stages completed.
 CONFIG_NAME = "pipeline_config.json"
 STATE_NAME = "pipeline_state.json"
@@ -291,6 +303,44 @@ def _pairwise_cka_word_files(
     )
 
 
+def _pairwise_cka_by_doc_id(
+    path_a: str,
+    path_b: str,
+    *,
+    chunk_rows: int,
+    filters: list[tuple[str, str]] | None = None,
+    doc_ids: set[int] | None = None,
+) -> dict[str, Any]:
+    """CKA on document embeddings aligned by ``doc_id`` (segment may differ)."""
+    filters = list(filters or [])
+    ea, meta_a = _load_embeddings_meta(path_a)
+    eb, meta_b = _load_embeddings_meta(path_b)
+    allow: set[int] | None = doc_ids
+    if filters:
+        idx_a = row_indices_meta_match(meta_a, filters=filters, doc_ids=doc_ids)
+        allow = {int(meta_a[i]["doc_id"]) for i in idx_a.tolist()}
+    xa, xb, shared = _align_doc_embeddings_by_doc_id(
+        ea, meta_a, eb, meta_b, doc_ids_allow=allow
+    )
+    n = int(xa.shape[0])
+    has_slice = bool(filters) or bool(doc_ids)
+    out: dict[str, Any] = {
+        "path_a": path_a,
+        "path_b": path_b,
+        "n_rows": n,
+        "n_rows_total_a": int(ea.shape[0]),
+        "n_rows_total_b": int(eb.shape[0]),
+        "pairing": "doc_id_aligned",
+        "row_slice": slice_spec_dict(filters, doc_ids) if has_slice else None,
+    }
+    if n < 2:
+        out["linear_cka"] = float("nan")
+        out["error"] = "fewer than 2 aligned docs"
+    else:
+        out["linear_cka"] = float(linear_cka_chunked(xa, xb, chunk_rows))
+    return out
+
+
 def _cka_record_merge_key(rec: dict[str, Any]) -> tuple[Any, ...]:
     rs = rec.get("row_slice")
     rs_s = json.dumps(rs, sort_keys=True, default=str) if rs is not None else ""
@@ -299,6 +349,12 @@ def _cka_record_merge_key(rec: dict[str, Any]) -> tuple[Any, ...]:
         rec.get("aggregation", "word"),
         rec.get("model_a"),
         rec.get("model_b"),
+        rec.get("comparison", ""),
+        rec.get("text_source", ""),
+        rec.get("text_source_a", ""),
+        rec.get("text_source_b", ""),
+        rec.get("embedder_a", ""),
+        rec.get("embedder_b", ""),
         rs_s,
     )
 
@@ -509,6 +565,50 @@ def _task_word_npy(out_dir: str, subdir: str, slug: str) -> str:
 
 def _task_doc_npy(out_dir: str, subdir: str, slug: str) -> str:
     return os.path.join(out_dir, subdir, slug, "document_embeddings_merged_agnostic.npy")
+
+
+def _task_by_embedder_dir(
+    out_dir: str, subdir: str, text_slug: str, embedder_slug: str
+) -> str:
+    return os.path.join(
+        out_dir, subdir, text_slug, BY_EMBEDDER_DIR, embedder_slug
+    )
+
+
+def _task_cross_word_npy(
+    out_dir: str, subdir: str, text_slug: str, embedder_slug: str
+) -> str:
+    return os.path.join(
+        _task_by_embedder_dir(out_dir, subdir, text_slug, embedder_slug),
+        "word_embeddings_merged_agnostic.npy",
+    )
+
+
+def _task_cross_doc_npy(
+    out_dir: str, subdir: str, text_slug: str, embedder_slug: str
+) -> str:
+    return os.path.join(
+        _task_by_embedder_dir(out_dir, subdir, text_slug, embedder_slug),
+        "document_embeddings_merged_agnostic.npy",
+    )
+
+
+def _task_embed_npy(
+    out_dir: str,
+    subdir: str,
+    *,
+    text_slug: str,
+    embedder_slug: str,
+    aggregation: str,
+) -> str:
+    """Own-embed path when text_slug == embedder_slug; else by_embedder path."""
+    if text_slug == embedder_slug:
+        if aggregation == "document":
+            return _task_doc_npy(out_dir, subdir, text_slug)
+        return _task_word_npy(out_dir, subdir, text_slug)
+    if aggregation == "document":
+        return _task_cross_doc_npy(out_dir, subdir, text_slug, embedder_slug)
+    return _task_cross_word_npy(out_dir, subdir, text_slug, embedder_slug)
 
 
 def _response_word_npy(out_dir: str, slug: str) -> str:
@@ -1167,6 +1267,542 @@ def run_stage_embed_responses(
     _mark_stage_done(out_dir, "embed_responses")
 
 
+def run_stage_embed_cross_responses(
+    *,
+    out_dir: str,
+    args_models: list[str],
+    generation_tasks: list[dict[str, Any]],
+    device: str,
+    local_only: bool,
+    batch_size: int,
+    chunk_size: int,
+    aggregation_level: str,
+    run_info: dict[str, Any],
+    force_redo: bool,
+) -> None:
+    """Embed each model's generations with every other model (off-diagonal cells)."""
+    cfg = _load_pipeline_config(out_dir)
+    if cfg.get("skip_generate"):
+        print("[embed_cross_responses] skip (skip_generate in pipeline_config)")
+        _mark_stage_done(out_dir, "embed_cross_responses")
+        return
+    _verify_models_match(cfg["models"], args_models)
+    if len(args_models) < 2:
+        print("[embed_cross_responses] skip (need at least two models)")
+        _mark_stage_done(out_dir, "embed_cross_responses")
+        return
+    want_word, want_doc = _aggregation_outputs(aggregation_level)
+    artifacts = run_info.setdefault("artifacts", {})
+    text_slugs = [sanitize_model_slug(m) for m in args_models]
+
+    # Outer loop over embedder so each checkpoint is loaded as few times as possible.
+    for emb_path in args_models:
+        emb_slug = sanitize_model_slug(emb_path)
+        for task in generation_tasks:
+            subdir = task["subdir"]
+            segment = task["name"]
+            docs_by_model = _load_task_by_model(out_dir, subdir, args_models)
+            for text_slug in text_slugs:
+                if text_slug == emb_slug:
+                    continue
+                w_path = _task_cross_word_npy(out_dir, subdir, text_slug, emb_slug)
+                d_path = _task_cross_doc_npy(out_dir, subdir, text_slug, emb_slug)
+                required_paths = []
+                if want_word:
+                    required_paths.append(w_path)
+                if want_doc:
+                    required_paths.append(d_path)
+                if (
+                    required_paths
+                    and all(os.path.isfile(p) for p in required_paths)
+                    and not force_redo
+                ):
+                    print(f"[embed_cross_responses] skip (exists): {', '.join(required_paths)}")
+                    continue
+                resp_docs = docs_by_model[text_slug]
+                resp_rows = [
+                    {
+                        "doc_id": int(x["doc_id"]),
+                        "category": x["category"],
+                        "title": x["title"],
+                        "text": x["response"],
+                        "segment": segment,
+                        "text_source": text_slug,
+                        "embedder": emb_slug,
+                    }
+                    for x in resp_docs
+                ]
+                r_dir = _task_by_embedder_dir(out_dir, subdir, text_slug, emb_slug)
+                os.makedirs(r_dir, exist_ok=True)
+                t0 = time.perf_counter()
+                emb_r, meta_r = embed_labeled_texts(
+                    resp_rows,
+                    emb_path,
+                    device=device,
+                    local_files_only=local_only,
+                    batch_size=batch_size,
+                    chunk_size=chunk_size,
+                )
+                save_token_npy(os.path.join(r_dir, "token_embeddings.npy"), emb_r, meta_r)
+                if want_word:
+                    w_r, m_r = merge_token_embeddings_to_words(emb_r, meta_r)
+                    save_word_npy(w_path, w_r, m_r)
+                if want_doc:
+                    d_r, dm_r = merge_token_embeddings_to_docs(emb_r, meta_r)
+                    save_word_npy(d_path, d_r, dm_r)
+                art_key = f"{subdir}_{text_slug}_by_embedder_{emb_slug}"
+                artifacts[f"{art_key}_token_embeddings"] = os.path.join(
+                    r_dir, "token_embeddings.npy"
+                )
+                if want_word:
+                    artifacts[f"{art_key}_word_embeddings"] = w_path
+                if want_doc:
+                    artifacts[f"{art_key}_document_embeddings"] = d_path
+                elapsed = round(time.perf_counter() - t0, 3)
+                run_info["timings_sec"].setdefault("models", {}).setdefault(emb_slug, {})[
+                    f"embedding_cross_{segment}_from_{text_slug}"
+                ] = elapsed
+                print(
+                    f"[embed_cross_responses] text={text_slug} "
+                    f"embedder={emb_slug}/{segment} ({elapsed}s)"
+                )
+    _mark_stage_done(out_dir, "embed_cross_responses")
+
+
+def _append_cross_embed_pairwise_cka(
+    *,
+    out_dir: str,
+    cka_dir: str,
+    slugs: list[str],
+    generation_tasks: list[dict[str, Any]],
+    agg_specs: list[tuple[str, str, Any, Any]],
+    cka_chunk_rows: int,
+    cka_filters: list[tuple[str, str]] | None,
+    cka_doc_ids: set[int] | None,
+    slice_suffix: str,
+    cka_records: list[dict[str, Any]],
+) -> None:
+    """Append same-text cross-embedder and same-embedder cross-text CKA records."""
+
+    def _write_rec(rec: dict[str, Any], file_name: str) -> None:
+        cka_records.append(rec)
+        with open(os.path.join(cka_dir, file_name), "w", encoding="utf-8") as cf:
+            json.dump(rec, cf, indent=2)
+        label = rec.get("comparison", "cross")
+        seg = rec.get("segment")
+        agg = rec.get("aggregation")
+        if rec.get("error"):
+            print(f"CKA {label} {seg} ({agg}): {rec['error']}")
+        else:
+            print(
+                f"CKA {label} {seg} ({agg}): "
+                f"linear_cka={rec['linear_cka']:.6f} n={rec['n_rows']}"
+            )
+
+    for agg_name, seg_suffix, excerpt_path_fn, _task_path_fn in agg_specs:
+        for task in generation_tasks:
+            segment = task["name"]
+            subdir = task["subdir"]
+
+            # Same generated text, two embedders (own + cross, or two cross).
+            for text_slug in slugs:
+                embedders = [
+                    e
+                    for e in slugs
+                    if os.path.isfile(
+                        _task_embed_npy(
+                            out_dir,
+                            subdir,
+                            text_slug=text_slug,
+                            embedder_slug=e,
+                            aggregation=agg_name,
+                        )
+                    )
+                ]
+                for i in range(len(embedders)):
+                    for j in range(i + 1, len(embedders)):
+                        ea, eb = embedders[i], embedders[j]
+                        # Require at least one true cross-embed cell.
+                        if ea == text_slug and eb == text_slug:
+                            continue
+                        path_a = _task_embed_npy(
+                            out_dir,
+                            subdir,
+                            text_slug=text_slug,
+                            embedder_slug=ea,
+                            aggregation=agg_name,
+                        )
+                        path_b = _task_embed_npy(
+                            out_dir,
+                            subdir,
+                            text_slug=text_slug,
+                            embedder_slug=eb,
+                            aggregation=agg_name,
+                        )
+                        rec = {
+                            "segment": segment,
+                            "aggregation": agg_name,
+                            "comparison": "same_text_cross_embedder",
+                            "text_source": text_slug,
+                            "embedder_a": ea,
+                            "embedder_b": eb,
+                            "model_a": ea,
+                            "model_b": eb,
+                            **_pairwise_cka_word_files(
+                                path_a,
+                                path_b,
+                                chunk_rows=cka_chunk_rows,
+                                filters=cka_filters or None,
+                                doc_ids=cka_doc_ids,
+                            ),
+                        }
+                        fname = (
+                            f"{segment}{seg_suffix}__same_text__{_safe_slug(text_slug)}"
+                            f"__emb_{_safe_slug(ea)}__vs__{_safe_slug(eb)}"
+                            f"{slice_suffix}.json"
+                        )
+                        _write_rec(rec, fname)
+
+            # Same embedder: excerpt vs foreign generation; own gen vs foreign gen.
+            # Only meaningful at document aggregation (align by doc_id; segments differ
+            # for excerpt vs generation, and texts differ for own vs foreign).
+            if agg_name != "document":
+                continue
+            for emb_slug in slugs:
+                ex_path = excerpt_path_fn(out_dir, emb_slug)
+                if not os.path.isfile(ex_path):
+                    continue
+                for text_slug in slugs:
+                    if text_slug == emb_slug:
+                        continue
+                    foreign = _task_embed_npy(
+                        out_dir,
+                        subdir,
+                        text_slug=text_slug,
+                        embedder_slug=emb_slug,
+                        aggregation=agg_name,
+                    )
+                    if not os.path.isfile(foreign):
+                        continue
+                    rec = {
+                        "segment": f"excerpt__vs__{segment}",
+                        "aggregation": agg_name,
+                        "comparison": "same_embedder_excerpt_vs_foreign_text",
+                        "text_source_a": "corpus",
+                        "text_source_b": text_slug,
+                        "embedder_a": emb_slug,
+                        "embedder_b": emb_slug,
+                        "model_a": emb_slug,
+                        "model_b": emb_slug,
+                        **_pairwise_cka_by_doc_id(
+                            ex_path,
+                            foreign,
+                            chunk_rows=cka_chunk_rows,
+                            filters=cka_filters or None,
+                            doc_ids=cka_doc_ids,
+                        ),
+                    }
+                    fname = (
+                        f"excerpt_vs_{segment}{seg_suffix}__emb_{_safe_slug(emb_slug)}"
+                        f"__text_corpus__vs__{_safe_slug(text_slug)}{slice_suffix}.json"
+                    )
+                    _write_rec(rec, fname)
+
+                    own = _task_embed_npy(
+                        out_dir,
+                        subdir,
+                        text_slug=emb_slug,
+                        embedder_slug=emb_slug,
+                        aggregation=agg_name,
+                    )
+                    if not os.path.isfile(own):
+                        continue
+                    rec2 = {
+                        "segment": segment,
+                        "aggregation": agg_name,
+                        "comparison": "same_embedder_own_vs_foreign_text",
+                        "text_source_a": emb_slug,
+                        "text_source_b": text_slug,
+                        "embedder_a": emb_slug,
+                        "embedder_b": emb_slug,
+                        "model_a": emb_slug,
+                        "model_b": emb_slug,
+                        **_pairwise_cka_by_doc_id(
+                            own,
+                            foreign,
+                            chunk_rows=cka_chunk_rows,
+                            filters=cka_filters or None,
+                            doc_ids=cka_doc_ids,
+                        ),
+                    }
+                    fname2 = (
+                        f"{segment}{seg_suffix}__emb_{_safe_slug(emb_slug)}"
+                        f"__text_{_safe_slug(emb_slug)}__vs__{_safe_slug(text_slug)}"
+                        f"{slice_suffix}.json"
+                    )
+                    _write_rec(rec2, fname2)
+
+
+def _document_cross_embed_comparisons(
+    *,
+    out_dir: str,
+    slugs: list[str],
+    chunk_rows: int,
+    generation_tasks: list[dict[str, Any]],
+    doc_ids_allow: set[int] | None = None,
+) -> dict[str, Any]:
+    """Document-level CKA for cross-embed cells (separate from the own-embed matrix)."""
+    cka_dir = os.path.join(out_dir, "cka")
+    os.makedirs(cka_dir, exist_ok=True)
+    pool_label = "(all documents)"
+    same_text: list[dict[str, Any]] = []
+    excerpt_vs_foreign: list[dict[str, Any]] = []
+    own_vs_foreign: list[dict[str, Any]] = []
+    same_text_pooled: list[dict[str, Any]] = []
+    excerpt_vs_foreign_pooled: list[dict[str, Any]] = []
+    own_vs_foreign_pooled: list[dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+    aggregated: list[dict[str, Any]] = []
+
+    def _pair_doc(
+        path_a: str,
+        path_b: str,
+        *,
+        category: str | None,
+        base: dict[str, Any],
+        file_prefix: str,
+    ) -> dict[str, Any] | None:
+        if not (os.path.isfile(path_a) and os.path.isfile(path_b)):
+            return None
+        ea, meta_a = _load_embeddings_meta(path_a)
+        eb, meta_b = _load_embeddings_meta(path_b)
+        if category is not None:
+            ia = [i for i, m in enumerate(meta_a) if str(m.get("category", "")) == category]
+            ib = [i for i, m in enumerate(meta_b) if str(m.get("category", "")) == category]
+            ea, meta_a = ea[ia], [meta_a[i] for i in ia]
+            eb, meta_b = eb[ib], [meta_b[i] for i in ib]
+        xa, xb, shared = _align_doc_embeddings_by_doc_id(
+            ea, meta_a, eb, meta_b, doc_ids_allow=doc_ids_allow
+        )
+        n = int(xa.shape[0])
+        rec: dict[str, Any] = {
+            **base,
+            "aggregation": "document",
+            "category": category if category is not None else pool_label,
+            "pooled": category is None,
+            "path_a": path_a,
+            "path_b": path_b,
+            "n_rows": n,
+            "n_rows_total_a": int(ea.shape[0]),
+            "n_rows_total_b": int(eb.shape[0]),
+            "pairing": "doc_id_aligned",
+            "doc_ids": shared,
+            "row_slice": {
+                "pooled": category is None,
+                "filters": [["category", category]] if category is not None else None,
+                "doc_ids": sorted(doc_ids_allow) if doc_ids_allow else None,
+            },
+        }
+        if n < 2:
+            rec["linear_cka"] = float("nan")
+            rec["error"] = "fewer than 2 aligned docs"
+        else:
+            rec["linear_cka"] = float(linear_cka_chunked(xa, xb, chunk_rows))
+        safe_cat = _safe_slug(category) if category is not None else "pooled"
+        fname = f"{file_prefix}__{safe_cat}.json"
+        with open(os.path.join(cka_dir, fname), "w", encoding="utf-8") as f:
+            json.dump(rec, f, indent=2)
+        return rec
+
+    categories: set[str] = set()
+    for slug in slugs:
+        ex = _excerpt_doc_npy(out_dir, slug)
+        if os.path.isfile(ex):
+            _emb, meta = _load_embeddings_meta(ex)
+            categories.update(str(m.get("category", "")) for m in meta)
+
+    for task in generation_tasks:
+        segment = task["name"]
+        subdir = task["subdir"]
+
+        for text_slug in slugs:
+            embedders = [
+                e
+                for e in slugs
+                if os.path.isfile(
+                    _task_embed_npy(
+                        out_dir,
+                        subdir,
+                        text_slug=text_slug,
+                        embedder_slug=e,
+                        aggregation="document",
+                    )
+                )
+            ]
+            for i in range(len(embedders)):
+                for j in range(i + 1, len(embedders)):
+                    ea, eb = embedders[i], embedders[j]
+                    if ea == text_slug and eb == text_slug:
+                        continue
+                    path_a = _task_embed_npy(
+                        out_dir,
+                        subdir,
+                        text_slug=text_slug,
+                        embedder_slug=ea,
+                        aggregation="document",
+                    )
+                    path_b = _task_embed_npy(
+                        out_dir,
+                        subdir,
+                        text_slug=text_slug,
+                        embedder_slug=eb,
+                        aggregation="document",
+                    )
+                    base = {
+                        "analysis": "document_cross_embed",
+                        "comparison": "same_text_cross_embedder",
+                        "segment": segment,
+                        "segment_a": segment,
+                        "segment_b": segment,
+                        "text_source": text_slug,
+                        "embedder_a": ea,
+                        "embedder_b": eb,
+                        "model_a": ea,
+                        "model_b": eb,
+                    }
+                    prefix = (
+                        f"cross_same_text__{_safe_slug(segment)}__"
+                        f"{_safe_slug(text_slug)}__emb_{_safe_slug(ea)}__vs__{_safe_slug(eb)}"
+                    )
+                    agg_rec = _pair_doc(
+                        path_a, path_b, category=None, base=base, file_prefix=f"pooled__{prefix}"
+                    )
+                    if agg_rec:
+                        aggregated.append(agg_rec)
+                        same_text_pooled.append(agg_rec)
+                    for cat in sorted(categories):
+                        cat_rec = _pair_doc(
+                            path_a,
+                            path_b,
+                            category=cat,
+                            base=base,
+                            file_prefix=f"by_category__{prefix}",
+                        )
+                        if cat_rec:
+                            results.append(cat_rec)
+                            same_text.append(cat_rec)
+
+        for emb_slug in slugs:
+            ex_path = _excerpt_doc_npy(out_dir, emb_slug)
+            if not os.path.isfile(ex_path):
+                continue
+            for text_slug in slugs:
+                if text_slug == emb_slug:
+                    continue
+                foreign = _task_embed_npy(
+                    out_dir,
+                    subdir,
+                    text_slug=text_slug,
+                    embedder_slug=emb_slug,
+                    aggregation="document",
+                )
+                if not os.path.isfile(foreign):
+                    continue
+                base_ex = {
+                    "analysis": "document_cross_embed",
+                    "comparison": "same_embedder_excerpt_vs_foreign_text",
+                    "segment": f"excerpt__vs__{segment}",
+                    "segment_a": "excerpt",
+                    "segment_b": segment,
+                    "text_source_a": "corpus",
+                    "text_source_b": text_slug,
+                    "embedder_a": emb_slug,
+                    "embedder_b": emb_slug,
+                    "model_a": emb_slug,
+                    "model_b": emb_slug,
+                }
+                prefix_ex = (
+                    f"cross_excerpt_vs_{_safe_slug(segment)}__emb_{_safe_slug(emb_slug)}"
+                    f"__text_corpus__vs__{_safe_slug(text_slug)}"
+                )
+                agg_rec = _pair_doc(
+                    ex_path, foreign, category=None, base=base_ex, file_prefix=f"pooled__{prefix_ex}"
+                )
+                if agg_rec:
+                    aggregated.append(agg_rec)
+                    excerpt_vs_foreign_pooled.append(agg_rec)
+                for cat in sorted(categories):
+                    cat_rec = _pair_doc(
+                        ex_path,
+                        foreign,
+                        category=cat,
+                        base=base_ex,
+                        file_prefix=f"by_category__{prefix_ex}",
+                    )
+                    if cat_rec:
+                        results.append(cat_rec)
+                        excerpt_vs_foreign.append(cat_rec)
+
+                own = _task_embed_npy(
+                    out_dir,
+                    subdir,
+                    text_slug=emb_slug,
+                    embedder_slug=emb_slug,
+                    aggregation="document",
+                )
+                if not os.path.isfile(own):
+                    continue
+                base_own = {
+                    "analysis": "document_cross_embed",
+                    "comparison": "same_embedder_own_vs_foreign_text",
+                    "segment": segment,
+                    "segment_a": segment,
+                    "segment_b": segment,
+                    "text_source_a": emb_slug,
+                    "text_source_b": text_slug,
+                    "embedder_a": emb_slug,
+                    "embedder_b": emb_slug,
+                    "model_a": emb_slug,
+                    "model_b": emb_slug,
+                }
+                prefix_own = (
+                    f"cross_own_vs_foreign__{_safe_slug(segment)}__emb_{_safe_slug(emb_slug)}"
+                    f"__text_{_safe_slug(emb_slug)}__vs__{_safe_slug(text_slug)}"
+                )
+                agg_rec = _pair_doc(
+                    own, foreign, category=None, base=base_own, file_prefix=f"pooled__{prefix_own}"
+                )
+                if agg_rec:
+                    aggregated.append(agg_rec)
+                    own_vs_foreign_pooled.append(agg_rec)
+                for cat in sorted(categories):
+                    cat_rec = _pair_doc(
+                        own,
+                        foreign,
+                        category=cat,
+                        base=base_own,
+                        file_prefix=f"by_category__{prefix_own}",
+                    )
+                    if cat_rec:
+                        results.append(cat_rec)
+                        own_vs_foreign.append(cat_rec)
+
+    return {
+        "results": results,
+        "aggregated": aggregated,
+        "focused": {
+            "same_text_cross_embedder": same_text,
+            "same_embedder_excerpt_vs_foreign_text": excerpt_vs_foreign,
+            "same_embedder_own_vs_foreign_text": own_vs_foreign,
+        },
+        "aggregated_focused": {
+            "same_text_cross_embedder": same_text_pooled,
+            "same_embedder_excerpt_vs_foreign_text": excerpt_vs_foreign_pooled,
+            "same_embedder_own_vs_foreign_text": own_vs_foreign_pooled,
+        },
+    }
+
+
 def run_stage_cka(
     *,
     out_dir: str,
@@ -1280,6 +1916,19 @@ def run_stage_cka(
                             f"CKA {segment} ({agg_name}) {si} vs {sj}: "
                             f"linear_cka={rec_r['linear_cka']:.6f} n={rec_r['n_rows']}"
                         )
+    if not skip_generate:
+        _append_cross_embed_pairwise_cka(
+            out_dir=out_dir,
+            cka_dir=cka_dir,
+            slugs=slugs,
+            generation_tasks=generation_tasks,
+            agg_specs=agg_specs,
+            cka_chunk_rows=cka_chunk_rows,
+            cka_filters=cka_filters or None,
+            cka_doc_ids=cka_doc_ids,
+            slice_suffix=slice_suffix,
+            cka_records=cka_records,
+        )
     if has_row_slice and os.path.isfile(cka_index):
         prev_list = _load_json(cka_index)
         if not isinstance(prev_list, list):
@@ -1313,6 +1962,20 @@ def run_stage_cka(
                 generation_tasks=generation_tasks,
                 doc_ids_allow=cka_doc_ids,
             )
+            cross_embed: dict[str, Any] = {
+                "results": [],
+                "aggregated": [],
+                "focused": {},
+                "aggregated_focused": {},
+            }
+            if not skip_generate:
+                cross_embed = _document_cross_embed_comparisons(
+                    out_dir=out_dir,
+                    slugs=slugs,
+                    chunk_rows=cka_chunk_rows,
+                    generation_tasks=generation_tasks,
+                    doc_ids_allow=cka_doc_ids,
+                )
             by_cat_obj = {
                 "analysis": "document_by_category",
                 "out_dir": out_dir,
@@ -1324,6 +1987,7 @@ def run_stage_cka(
                 "aggregated": by_cat.get("aggregated", []),
                 "aggregated_focused": by_cat.get("aggregated_focused", {}),
                 "focused": by_cat.get("focused", {}),
+                "cross_embed": cross_embed,
             }
             with open(by_cat_index, "w", encoding="utf-8") as f:
                 json.dump(by_cat_obj, f, indent=2)
@@ -1357,6 +2021,16 @@ def run_stage_cka(
                     or agf.get("within_model_excerpt_vs_response")
                     or []
                 ),
+            )
+            cef = (by_cat_obj.get("cross_embed") or {}).get("focused") or {}
+            print(
+                "[cka] cross-embed document comparisons:",
+                "same_text=",
+                len(cef.get("same_text_cross_embedder", [])),
+                "excerpt_vs_foreign=",
+                len(cef.get("same_embedder_excerpt_vs_foreign_text", [])),
+                "own_vs_foreign=",
+                len(cef.get("same_embedder_own_vs_foreign_text", [])),
             )
         run_info.setdefault("artifacts", {})["cka_document_by_category"] = by_cat_index
 
@@ -1666,6 +2340,18 @@ def main() -> None:
                 run_info=run_info,
                 force_redo=force_redo,
             )
+            run_stage_embed_cross_responses(
+                out_dir=out_dir,
+                args_models=args.models,
+                generation_tasks=generation_tasks,
+                device=device,
+                local_only=local_only,
+                batch_size=args.batch_size,
+                chunk_size=args.chunk_size,
+                aggregation_level=args.aggregation_level,
+                run_info=run_info,
+                force_redo=force_redo,
+            )
         run_stage_cka(
             out_dir=out_dir,
             args_models=args.models,
@@ -1793,6 +2479,20 @@ def main() -> None:
     elif args.stage == "embed_responses":
         cfg = _load_pipeline_config(out_dir)
         run_stage_embed_responses(
+            out_dir=out_dir,
+            args_models=args.models,
+            generation_tasks=_effective_generation_tasks(cfg),
+            device=device,
+            local_only=local_only,
+            batch_size=cfg["batch_size"],
+            chunk_size=cfg["chunk_size"],
+            aggregation_level=cfg.get("aggregation_level", "word"),
+            run_info=run_info,
+            force_redo=force_redo,
+        )
+    elif args.stage == "embed_cross_responses":
+        cfg = _load_pipeline_config(out_dir)
+        run_stage_embed_cross_responses(
             out_dir=out_dir,
             args_models=args.models,
             generation_tasks=_effective_generation_tasks(cfg),

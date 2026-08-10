@@ -8,7 +8,7 @@
 | gemma-3-1b-it (excerpt) | gemma-3-1b-it (response) | 0.471680 | 0.453394 | 0.502379 |
 | Qwen3.5-0.8B (excerpt) | gemma-3-1b-it (excerpt) | 0.825885 | 0.841013 | 0.814855 |
 | Qwen3.5-0.8B (response) | gemma-3-1b-it (response) | 0.619736 | 0.651034 | 0.624732 |
-_A / B: model and **excerpt** vs **response** for each side of the comparison. Science column: `Category:Science`; Culture column: `Category:Culture` (matched from category strings in the JSON)._
+_A / B: model and segment for each side (within-model different segments, then cross-model same segment). Segments: **excerpt**, **response**. Science column: `Category:Science`; Culture column: `Category:Culture` (matched from category strings in the JSON)._
 
 - Source: `F:\code\Independent Study\outputs\my_run6\cka\document_cka_by_category.json`
 - Models: Qwen3.5-0.8B, gemma-3-1b-it
@@ -16,6 +16,25 @@ _A / B: model and **excerpt** vs **response** for each side of the comparison. S
 - Categories: Category:Culture, Category:Science
 - Per-category pair comparisons: 12
 - Pooled pair comparisons (all doc_id aligned rows): 6
+
+## Run parameters
+
+- **cli_command:** `.\run_categorized_corpus.py --corpus .\data\wiki_tree_corpus_for_cka.jsonl --out_dir .\outputs\my_run6 --models F:\quantas\models\google\gemma-3-1b-it F:\quantas\models\Qwen\Qwen3.5-0.8B --aggregation_level document --words 200 --max_new_tokens 1500 --max_generated_words 200 --word_count_prompt --batch_size 4 --chunk_size 768 --stage all`
+- **corpus:** `F:\code\Independent Study\data\wiki_tree_corpus_for_cka.jsonl`
+- **words:** `200`
+- **num_docs:** `200`
+- **models:** F:\quantas\models\google\gemma-3-1b-it, F:\quantas\models\Qwen\Qwen3.5-0.8B
+- **aggregation_level:** `document`
+- **max_new_tokens:** `1500`
+- **max_generated_words:** `200`
+- **word_count_prompt:** `True`
+- **batch_size:** `4`
+- **chunk_size:** `768`
+- **cka_chunk_rows:** `4096`
+- **device:** `cuda`
+- **local_only:** `True`
+- **skip_generate:** `False`
+- **skip_cka:** `False`
 
 
 ## Pooled (all documents)
@@ -29,7 +48,7 @@ One CKA per model/segment **pair** using the full set of document embeddings ali
 | Qwen3.5-0.8B (excerpt) | gemma-3-1b-it (excerpt) | 0.825885 | 200 |
 | Qwen3.5-0.8B (response) | gemma-3-1b-it (response) | 0.619736 | 200 |
 
-### Within model, excerpt vs response
+### Within model, different segments
 
 | A | B | CKA | Rows |
 | --- | --- | --- | --- |
@@ -56,7 +75,7 @@ One CKA per model/segment **pair** using the full set of document embeddings ali
 | Category:Science | Qwen3.5-0.8B (excerpt) | gemma-3-1b-it (excerpt) | 0.841013 | 100 |
 | Category:Science | Qwen3.5-0.8B (response) | gemma-3-1b-it (response) | 0.651034 | 100 |
 
-### Within model, excerpt vs response
+### Within model, different segments
 
 | Category | A | B | CKA | Rows |
 | --- | --- | --- | --- | --- |

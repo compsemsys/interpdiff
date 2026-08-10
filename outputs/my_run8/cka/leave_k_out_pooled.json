@@ -6,7 +6,7 @@
   "n_reps": 100,
   "seed": 0,
   "n_pairs": 9,
-  "seconds": 19.204318199772388,
+  "seconds": 18.605917300039437,
   "results": [
     {
       "model_a": "Qwen3.5-0.8B",
@@ -219,6 +219,8 @@
         200
       ],
       "full_linear_cka": 0.595318084025583,
+      "label_a": "Qwen3.5-0.8B (excerpt)",
+      "label_b": "Qwen3.5-0.8B (response)",
       "linear_cka": 0.5953181484348884,
       "leave_k_out": {
         "drop_k": 10,
@@ -541,6 +543,8 @@
         200
       ],
       "full_linear_cka": 0.8774389928859355,
+      "label_a": "Qwen3.5-0.8B (excerpt)",
+      "label_b": "Qwen3.5-0.8B (summary)",
       "linear_cka": 0.8774383730007989,
       "leave_k_out": {
         "drop_k": 10,
@@ -863,6 +867,8 @@
         200
       ],
       "full_linear_cka": 0.6198424178754506,
+      "label_a": "Qwen3.5-0.8B (response)",
+      "label_b": "Qwen3.5-0.8B (summary)",
       "linear_cka": 0.6198414564886464,
       "leave_k_out": {
         "drop_k": 10,
@@ -1185,6 +1191,8 @@
         200
       ],
       "full_linear_cka": 0.4716799405453291,
+      "label_a": "gemma-3-1b-it (excerpt)",
+      "label_b": "gemma-3-1b-it (response)",
       "linear_cka": 0.4716831629203151,
       "leave_k_out": {
         "drop_k": 10,
@@ -1507,6 +1515,8 @@
         200
       ],
       "full_linear_cka": 0.7383597027727747,
+      "label_a": "gemma-3-1b-it (excerpt)",
+      "label_b": "gemma-3-1b-it (summary)",
       "linear_cka": 0.7383599667393974,
       "leave_k_out": {
         "drop_k": 10,
@@ -1829,6 +1839,8 @@
         200
       ],
       "full_linear_cka": 0.5705634662408604,
+      "label_a": "gemma-3-1b-it (response)",
+      "label_b": "gemma-3-1b-it (summary)",
       "linear_cka": 0.5705627343847935,
       "leave_k_out": {
         "drop_k": 10,
@@ -2151,6 +2163,8 @@
         200
       ],
       "full_linear_cka": 0.8258848837269677,
+      "label_a": "Qwen3.5-0.8B (excerpt)",
+      "label_b": "gemma-3-1b-it (excerpt)",
       "linear_cka": 0.8258860252435041,
       "leave_k_out": {
         "drop_k": 10,
@@ -2473,6 +2487,8 @@
         200
       ],
       "full_linear_cka": 0.6197355579915439,
+      "label_a": "Qwen3.5-0.8B (response)",
+      "label_b": "gemma-3-1b-it (response)",
       "linear_cka": 0.6197337373484104,
       "leave_k_out": {
         "drop_k": 10,
@@ -2795,6 +2811,8 @@
         200
       ],
       "full_linear_cka": 0.7652284637770734,
+      "label_a": "Qwen3.5-0.8B (summary)",
+      "label_b": "gemma-3-1b-it (summary)",
       "linear_cka": 0.7652269582886537,
       "leave_k_out": {
         "drop_k": 10,

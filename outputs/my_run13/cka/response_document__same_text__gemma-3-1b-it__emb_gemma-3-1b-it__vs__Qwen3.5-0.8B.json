@@ -1,0 +1,15 @@
+{
+  "segment": "response",
+  "aggregation": "document",
+  "comparison": "same_text_cross_embedder",
+  "text_source": "gemma-3-1b-it",
+  "embedder_a": "gemma-3-1b-it",
+  "embedder_b": "Qwen3.5-0.8B",
+  "model_a": "gemma-3-1b-it",
+  "model_b": "Qwen3.5-0.8B",
+  "linear_cka": 0.8784390343270098,
+  "path_a": "F:\\code\\Independent Study\\outputs\\my_run13\\responses\\gemma-3-1b-it\\document_embeddings_merged_agnostic.npy",
+  "path_b": "F:\\code\\Independent Study\\outputs\\my_run13\\responses\\gemma-3-1b-it\\by_embedder\\Qwen3.5-0.8B\\document_embeddings_merged_agnostic.npy",
+  "n_rows": 200,
+  "n_rows_total": 200
+}

@@ -19,36 +19,111 @@ def _label(model: str, segment: str) -> str:
     return f"{model} ({segment})"
 
 
+def _side_label(
+    *,
+    model: str,
+    segment: str,
+    embedder: str | None = None,
+    text_source: str | None = None,
+) -> str:
+    """Label one side of a comparison; prefer embedder/text_source when present."""
+    emb = (embedder or "").strip()
+    text = (text_source or "").strip()
+    if emb or text:
+        emb_s = emb or model
+        text_s = text or model
+        # Use "/" not "|": pipes break GitHub/Cursor markdown tables.
+        return f"emb={emb_s} / text={text_s} ({segment})"
+    return _label(model, segment)
+
+
+def _pair_side_labels(r: dict[str, object]) -> tuple[str, str]:
+    """A/B labels for own-embed or cross-embed records."""
+    ma = str(r.get("model_a", ""))
+    mb = str(r.get("model_b", ""))
+    sa = str(r.get("segment_a", ""))
+    sb = str(r.get("segment_b", ""))
+    ea = r.get("embedder_a")
+    eb = r.get("embedder_b")
+    # Prefer per-side text_source_*; fall back to shared text_source for same-text rows.
+    # Treat JSON null like missing (dict.get default only applies when key absent).
+    shared_ts = r.get("text_source")
+    tsa = r.get("text_source_a")
+    tsb = r.get("text_source_b")
+    if tsa is None or (isinstance(tsa, str) and not tsa.strip()):
+        tsa = shared_ts
+    if tsb is None or (isinstance(tsb, str) and not tsb.strip()):
+        tsb = shared_ts
+    has_cross = any(
+        x is not None and str(x).strip() != ""
+        for x in (ea, eb, tsa, tsb, r.get("comparison"))
+    )
+    if not has_cross:
+        return _label(ma, sa), _label(mb, sb)
+    return (
+        _side_label(
+            model=ma,
+            segment=sa,
+            embedder=str(ea) if ea is not None else None,
+            text_source=str(tsa) if tsa is not None else None,
+        ),
+        _side_label(
+            model=mb,
+            segment=sb,
+            embedder=str(eb) if eb is not None else None,
+            text_source=str(tsb) if tsb is not None else None,
+        ),
+    )
+
+
 def _fmt(v: float | None) -> str:
     if v is None:
         return "—"
     return f"{v:.6f}"
 
 
+def _md_cell(s: str) -> str:
+    """Escape characters that break pipe tables."""
+    return str(s).replace("|", "\\|")
+
+
 def _markdown_table(headers: list[str], rows: list[list[str]]) -> str:
     out = []
-    out.append("| " + " | ".join(headers) + " |")
+    out.append("| " + " | ".join(_md_cell(h) for h in headers) + " |")
     out.append("| " + " | ".join(["---"] * len(headers)) + " |")
     for r in rows:
-        out.append("| " + " | ".join(r) + " |")
+        out.append("| " + " | ".join(_md_cell(c) for c in r) + " |")
     return "\n".join(out)
+
+
+_CROSS_EMBED_BUCKETS: tuple[tuple[str, str], ...] = (
+    ("Same text, different embedders", "same_text_cross_embedder"),
+    ("Same embedder: excerpt vs foreign text", "same_embedder_excerpt_vs_foreign_text"),
+    ("Same embedder: own vs foreign text", "same_embedder_own_vs_foreign_text"),
+)
 
 
 def _focus_bucket_markdown(
     bucket_rows: list[dict[str, object]],
     *,
     show_category: bool,
+    use_cross_labels: bool = False,
 ) -> str:
     if not bucket_rows:
         return "_No rows_"
     rows: list[list[str]] = []
     for r in bucket_rows:
+        if use_cross_labels:
+            la, lb = _pair_side_labels(r)
+        else:
+            la = _label(str(r["model_a"]), str(r["segment_a"]))
+            lb = _label(str(r["model_b"]), str(r["segment_b"]))
         if show_category:
             rows.append(
                 [
                     str(r.get("category", "")),
-                    _label(str(r["model_a"]), str(r["segment_a"])),
-                    _label(str(r["model_b"]), str(r["segment_b"])),
+                    la,
+                    lb,
                     _fmt(r.get("linear_cka")),  # type: ignore[arg-type]
                     str(r.get("n_rows", 0)),
                 ]
@@ -56,8 +131,8 @@ def _focus_bucket_markdown(
         else:
             rows.append(
                 [
-                    _label(str(r["model_a"]), str(r["segment_a"])),
-                    _label(str(r["model_b"]), str(r["segment_b"])),
+                    la,
+                    lb,
                     _fmt(r.get("linear_cka")),  # type: ignore[arg-type]
                     str(r.get("n_rows", 0)),
                 ]
@@ -410,6 +485,168 @@ def _summary_table_markdown(
     return lines + "\n" + note
 
 
+def _cross_embed_has_content(cross: dict[str, object]) -> bool:
+    if not cross:
+        return False
+    for key in ("aggregated_focused", "focused", "aggregated", "results"):
+        val = cross.get(key)
+        if isinstance(val, dict):
+            for rows in val.values():
+                if isinstance(rows, list) and rows:
+                    return True
+        elif isinstance(val, list) and val:
+            return True
+    return False
+
+
+def _cross_embed_summary_markdown(
+    cross: dict[str, object],
+    categories: list[str],
+) -> str:
+    """Compact pooled + Science/Culture table for cross-embed aggregated_focused rows."""
+    agf = cross.get("aggregated_focused") or {}
+    focused = cross.get("focused") or {}
+    if not isinstance(agf, dict):
+        agf = {}
+    if not isinstance(focused, dict):
+        focused = {}
+
+    pooled_rows: list[dict[str, object]] = []
+    for _title, bucket in _CROSS_EMBED_BUCKETS:
+        pooled_rows.extend(_focus_bucket_rows(agf, bucket))
+    if not pooled_rows:
+        return "_No cross-embed pooled rows._"
+
+    cat_science = _category_by_keyword(categories, "science")
+    cat_culture = _category_by_keyword(categories, "culture")
+
+    def _n_for_cat(cat: str | None) -> int | None:
+        if not cat:
+            return None
+        for _title, bucket in _CROSS_EMBED_BUCKETS:
+            for r in _focus_bucket_rows(focused, bucket):
+                if r.get("category") == cat:
+                    n = r.get("n_rows")
+                    if isinstance(n, int):
+                        return n
+        return None
+
+    n_pool = None
+    for r in pooled_rows:
+        n = r.get("n_rows")
+        if isinstance(n, int):
+            n_pool = n
+            break
+    n_s = _n_for_cat(cat_science)
+    n_c = _n_for_cat(cat_culture)
+    h_pool = f"Pooled CKA ({n_pool})" if n_pool is not None else "Pooled CKA"
+    h_s = f"Science CKA ({n_s})" if n_s is not None and cat_science else "Science CKA"
+    h_c = f"Culture CKA ({n_c})" if n_c is not None and cat_culture else "Culture CKA"
+
+    def _match_per_cat(
+        pooled: dict[str, object], category: str
+    ) -> float | None:
+        for _title, bucket in _CROSS_EMBED_BUCKETS:
+            for r in _focus_bucket_rows(focused, bucket):
+                if r.get("category") != category:
+                    continue
+                if r.get("comparison") != pooled.get("comparison"):
+                    continue
+                if r.get("embedder_a") != pooled.get("embedder_a"):
+                    continue
+                if r.get("embedder_b") != pooled.get("embedder_b"):
+                    continue
+                if r.get("text_source") != pooled.get("text_source"):
+                    continue
+                if r.get("text_source_a") != pooled.get("text_source_a"):
+                    continue
+                if r.get("text_source_b") != pooled.get("text_source_b"):
+                    continue
+                if r.get("segment_a") != pooled.get("segment_a"):
+                    continue
+                if r.get("segment_b") != pooled.get("segment_b"):
+                    continue
+                v = r.get("linear_cka")
+                if isinstance(v, (int, float)) and v == v:
+                    return float(v)
+        return None
+
+    out_rows: list[list[str]] = []
+    for r in pooled_rows:
+        la, lb = _pair_side_labels(r)
+        ps = _fmt(r.get("linear_cka"))  # type: ignore[arg-type]
+        ss = _fmt(_match_per_cat(r, cat_science)) if cat_science else "—"
+        cc = _fmt(_match_per_cat(r, cat_culture)) if cat_culture else "—"
+        out_rows.append(
+            [
+                str(r.get("comparison", "")),
+                la,
+                lb,
+                ps,
+                ss,
+                cc,
+            ]
+        )
+
+    table = _markdown_table(
+        ["Comparison", "A", "B", h_pool, h_s, h_c],
+        out_rows,
+    )
+    note = (
+        "_Cross-embed pairs: same generated text under two embedders, or same embedder "
+        "on excerpt/own text vs foreign-model text. Labels use `emb=` (who embedded) and "
+        "`text=` (whose string)._"
+    )
+    return table + "\n" + note
+
+
+def _cross_embed_sections_markdown(
+    cross: dict[str, object],
+    categories: list[str],
+) -> list[str]:
+    """Markdown sections for cross-embed pooled + per-category focused buckets."""
+    lines: list[str] = []
+    lines.append("## Cross-embed summary")
+    lines.append("")
+    lines.append(_cross_embed_summary_markdown(cross, categories))
+    lines.append("")
+
+    agf = cross.get("aggregated_focused") or {}
+    if not isinstance(agf, dict):
+        agf = {}
+    lines.append("## Cross-embed (pooled)")
+    lines.append("")
+    for section_title, bucket in _CROSS_EMBED_BUCKETS:
+        lines.append(f"### {section_title}")
+        lines.append("")
+        lines.append(
+            _focus_bucket_markdown(
+                _focus_bucket_rows(agf, bucket),
+                show_category=False,
+                use_cross_labels=True,
+            )
+        )
+        lines.append("")
+
+    focused = cross.get("focused") or {}
+    if not isinstance(focused, dict):
+        focused = {}
+    lines.append("## Cross-embed (per-category)")
+    lines.append("")
+    for section_title, bucket in _CROSS_EMBED_BUCKETS:
+        lines.append(f"### {section_title}")
+        lines.append("")
+        lines.append(
+            _focus_bucket_markdown(
+                _focus_bucket_rows(focused, bucket),
+                show_category=True,
+                use_cross_labels=True,
+            )
+        )
+        lines.append("")
+    return lines
+
+
 def _cka_matrix_markdown(
     cat: str,
     axis: list[tuple[str, str]],
@@ -616,6 +853,10 @@ def main() -> None:
             )
         )
         lines.append("")
+
+    cross_embed = data.get("cross_embed") or {}
+    if isinstance(cross_embed, dict) and _cross_embed_has_content(cross_embed):
+        lines.extend(_cross_embed_sections_markdown(cross_embed, list(categories)))
 
     lines.append("## Per-Category Matrices")
     lines.append("")

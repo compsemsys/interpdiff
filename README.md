@@ -16,7 +16,7 @@ There is a processing pipeline for those steps:
 
 | Script | Role |
 |--------|------|
-| `run_categorized_corpus.py` | Main pipeline CLI (`init`, `generate`, `embed_excerpts`, `embed_responses`, `cka`, or `all`). Alias: `pipeline_embed_explain_cka.py`. |
+| `run_categorized_corpus.py` | Main pipeline CLI (`init`, `generate`, `embed_excerpts`, `embed_responses`, `embed_cross_responses`, `cka`, or `all`). Alias: `pipeline_embed_explain_cka.py`. |
 | `scripts/run_wiki_tree_cka_pipeline.py` | Build corpus from wiki-tree JSONL and run the full pipeline in one subprocess. |
 | `wiki_fetch.py` | Category-based Wikipedia fetcher for corpus construction. |
 | `wiki_tree_random_articles.py` | Weighted random wiki-tree sampler using `wiki_category_library.json`. |
@@ -58,8 +58,9 @@ Main stages:
 - `init` - writes excerpt corpus + pipeline config/state.
 - `generate` - generates responses for each model.
 - `embed_excerpts` - token embeddings + word/document aggregation for excerpts.
-- `embed_responses` - same for generated responses.
-- `cka` - pairwise CKA outputs and document-by-category matrix (when document aggregation exists).
+- `embed_responses` - own-embed for generated responses/summaries.
+- `embed_cross_responses` - each model embeds the other models' generations (`by_embedder/`).
+- `cka` - pairwise CKA outputs and document-by-category matrix (when document aggregation exists); enriched with cross-embed comparisons when present.
 
 See [PIPELINE_GUIDE.md](PIPELINE_GUIDE.md) for staged runs, resume/overwrite behavior, and artifact layout. See [CLI_REFERENCE.md](CLI_REFERENCE.md) for every flag and default.
 

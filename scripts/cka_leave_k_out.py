@@ -36,19 +36,84 @@ def _label(model: str, segment: str) -> str:
     return f"{model} ({segment})"
 
 
+def _side_label(
+    *,
+    model: str,
+    segment: str,
+    embedder: str | None = None,
+    text_source: str | None = None,
+) -> str:
+    emb = (embedder or "").strip()
+    text = (text_source or "").strip()
+    if emb or text:
+        emb_s = emb or model
+        text_s = text or model
+        # Use "/" not "|": pipes break GitHub/Cursor markdown tables.
+        return f"emb={emb_s} / text={text_s} ({segment})"
+    return _label(model, segment)
+
+
+def _pair_side_labels(r: dict[str, Any]) -> tuple[str, str]:
+    ma = str(r.get("model_a", ""))
+    mb = str(r.get("model_b", ""))
+    sa = str(r.get("segment_a", ""))
+    sb = str(r.get("segment_b", ""))
+    ea = r.get("embedder_a")
+    eb = r.get("embedder_b")
+    shared_ts = r.get("text_source")
+    tsa = r.get("text_source_a")
+    tsb = r.get("text_source_b")
+    if tsa is None or (isinstance(tsa, str) and not tsa.strip()):
+        tsa = shared_ts
+    if tsb is None or (isinstance(tsb, str) and not tsb.strip()):
+        tsb = shared_ts
+    has_cross = any(
+        x is not None and str(x).strip() != ""
+        for x in (ea, eb, tsa, tsb, r.get("comparison"))
+    )
+    if not has_cross:
+        return _label(ma, sa), _label(mb, sb)
+    return (
+        _side_label(
+            model=ma,
+            segment=sa,
+            embedder=str(ea) if ea is not None else None,
+            text_source=str(tsa) if tsa is not None else None,
+        ),
+        _side_label(
+            model=mb,
+            segment=sb,
+            embedder=str(eb) if eb is not None else None,
+            text_source=str(tsb) if tsb is not None else None,
+        ),
+    )
+
+
+_CROSS_EMBED_BUCKETS: tuple[str, ...] = (
+    "same_text_cross_embedder",
+    "same_embedder_excerpt_vs_foreign_text",
+    "same_embedder_own_vs_foreign_text",
+)
+
+
 def _fmt(v: float | None) -> str:
     if v is None or (isinstance(v, float) and v != v):
         return "—"
     return f"{v:.6f}"
 
 
+def _md_cell(s: str) -> str:
+    """Escape characters that break pipe tables."""
+    return str(s).replace("|", "\\|")
+
+
 def _markdown_table(headers: list[str], rows: list[list[str]]) -> str:
     out = [
-        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(_md_cell(h) for h in headers) + " |",
         "| " + " | ".join(["---"] * len(headers)) + " |",
     ]
     for r in rows:
-        out.append("| " + " | ".join(r) + " |")
+        out.append("| " + " | ".join(_md_cell(c) for c in r) + " |")
     return "\n".join(out)
 
 
@@ -89,13 +154,34 @@ def _focus_bucket_rows(
 
 
 def focused_pooled_pairs(doc: dict[str, Any]) -> list[dict[str, Any]]:
-    """Nine (typical) summary pairs from aggregated_focused."""
+    """Own-embed focused pooled pairs, plus cross-embed pooled pairs when present."""
     agf = doc.get("aggregated_focused") or {}
     if not isinstance(agf, dict):
-        return []
+        agf = {}
     within = _focus_bucket_rows(agf, "within_model_different_segments")
     cross = _focus_bucket_rows(agf, "cross_model_same_segment")
-    return within + cross
+    pairs = within + cross
+
+    cross_embed = doc.get("cross_embed") or {}
+    if isinstance(cross_embed, dict):
+        cef = cross_embed.get("aggregated_focused") or {}
+        if isinstance(cef, dict):
+            for bucket in _CROSS_EMBED_BUCKETS:
+                pairs.extend(_focus_bucket_rows(cef, bucket))
+    return pairs
+
+
+def _copy_cross_fields(src: dict[str, Any], dest: dict[str, Any]) -> None:
+    for key in (
+        "comparison",
+        "text_source",
+        "text_source_a",
+        "text_source_b",
+        "embedder_a",
+        "embedder_b",
+    ):
+        if key in src:
+            dest[key] = src[key]
 
 
 def main() -> None:
@@ -163,6 +249,7 @@ def main() -> None:
         n = int(xa.shape[0])
         ma, mb = str(rec["model_a"]), str(rec["model_b"])
         sa, sb = str(rec["segment_a"]), str(rec["segment_b"])
+        label_a, label_b = _pair_side_labels(rec)
 
         out_rec: dict[str, Any] = {
             "model_a": ma,
@@ -174,13 +261,16 @@ def main() -> None:
             "n_rows": n,
             "doc_ids": shared_doc_ids,
             "full_linear_cka": rec.get("linear_cka"),
+            "label_a": label_a,
+            "label_b": label_b,
         }
+        _copy_cross_fields(rec, out_rec)
 
         if n < 2:
             out_rec["linear_cka"] = float("nan")
             out_rec["error"] = "fewer than 2 aligned docs"
             results.append(out_rec)
-            print(f"[skip] {_label(ma, sa)} vs {_label(mb, sb)}: n={n}")
+            print(f"[skip] {label_a} vs {label_b}: n={n}")
             continue
 
         full_cka = float(linear_cka(xa, xb))
@@ -193,7 +283,7 @@ def main() -> None:
         except ValueError as e:
             out_rec["error"] = str(e)
             results.append(out_rec)
-            print(f"[error] {_label(ma, sa)} vs {_label(mb, sb)}: {e}")
+            print(f"[error] {label_a} vs {label_b}: {e}")
             continue
 
         out_rec["leave_k_out"] = {
@@ -206,7 +296,7 @@ def main() -> None:
         }
         results.append(out_rec)
         print(
-            f"{_label(ma, sa)} vs {_label(mb, sb)}: "
+            f"{label_a} vs {label_b}: "
             f"cka={full_cka:.6f} leave-k-out mean={mean_l:.6f} std={std_l:.6f} "
             f"(n={n}, drop_k={args.drop_k}, reps={args.n_reps})"
         )
@@ -244,10 +334,13 @@ def main() -> None:
         lko = r.get("leave_k_out") or {}
         mean_s = _fmt(lko.get("mean") if isinstance(lko, dict) else None)
         std_s = _fmt(lko.get("std") if isinstance(lko, dict) else None)
+        la = str(r.get("label_a") or _label(str(r["model_a"]), str(r["segment_a"])))
+        lb = str(r.get("label_b") or _label(str(r["model_b"]), str(r["segment_b"])))
         md_rows.append(
             [
-                _label(str(r["model_a"]), str(r["segment_a"])),
-                _label(str(r["model_b"]), str(r["segment_b"])),
+                str(r.get("comparison") or "own_embed"),
+                la,
+                lb,
                 _fmt(r.get("linear_cka")),  # type: ignore[arg-type]
                 mean_s,
                 std_s,
@@ -264,7 +357,15 @@ def main() -> None:
         f"- Elapsed: {elapsed:.2f}s",
         "",
         _markdown_table(
-            ["A", "B", "Full CKA", "Leave-k-out mean", "Leave-k-out std", "Rows"],
+            [
+                "Comparison",
+                "A",
+                "B",
+                "Full CKA",
+                "Leave-k-out mean",
+                "Leave-k-out std",
+                "Rows",
+            ],
             md_rows,
         ),
         "",

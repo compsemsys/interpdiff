@@ -29,8 +29,9 @@ Example sources in this repo: `data/wiki_tree_corpus_for_cka.jsonl`, or JSONL pr
 | `init` | Writes excerpt JSONL, copies/records corpus metadata, creates `pipeline_config.json` and `pipeline_state.json` under `--out_dir`. |
 | `generate` | For each `--models` entry: loads the causal LM once and runs every configured **generation task**. The primary task writes `responses/<slug>/responses.jsonl`; adding `--summarize` also writes `summaries/<slug>/responses.jsonl` (each line includes `segment`, `prompt`, and `response`). Generation length is capped by `--max_new_tokens` (new tokens) and, per task, a word cap (`--max_generated_words` for `response`, `--summarize_words` for `summary`, or each excerpt's word count when `--match_abstract_length` is set)—see **Generation limits** below. Skipped if `skip_generate` was set at init. |
 | `embed_excerpts` | Token embeddings + aggregation (`--aggregation_level word|document|both`) for excerpt text; artifacts under `excerpts/<slug>/`. |
-| `embed_responses` | Same for each generated task under its directory (`responses/<slug>/`, `summaries/<slug>/`, …), tagging rows with the task's segment label. Requires generation outputs unless `skip_generate`. |
-| `cka` | Pairwise **linear CKA** on aligned embedding rows from the configured aggregation level (`word`, `document`, or both); writes `cka/cka_index.json` and per-pair JSON files. For document aggregation, also writes a category-stratified matrix at `cka/document_cka_by_category.json`. Honors `skip_cka` from `pipeline_config.json` on staged runs. |
+| `embed_responses` | Same for each generated task under its directory (`responses/<slug>/`, `summaries/<slug>/`, …), tagging rows with the task's segment label. **Own-embed only:** the model that wrote the text also embeds it. Requires generation outputs unless `skip_generate`. |
+| `embed_cross_responses` | Cross-embed generations: each model embeds every *other* model's response/summary text. Writes under `<task>/<text_slug>/by_embedder/<embedder_slug>/`. Skippable on old runs as a standalone stage; included in `--stage all`. No-op when `skip_generate` or fewer than two models. |
+| `cka` | Pairwise **linear CKA** on aligned embedding rows from the configured aggregation level (`word`, `document`, or both); writes `cka/cka_index.json` and per-pair JSON files. For document aggregation, also writes a category-stratified matrix at `cka/document_cka_by_category.json`. When `by_embedder/` artifacts exist, also records same-text cross-embedder and same-embedder cross-text comparisons (extra `comparison` fields in `cka_index.json`; `cross_embed` section in the document matrix). Honors `skip_cka` from `pipeline_config.json` on staged runs. |
 
 **Default:** `--stage all` runs `init` through `cka` in one process (same order as above).
 
@@ -68,10 +69,19 @@ $RC = "F:\code\Independent Study\run_categorized_corpus.py"
 
 & $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage embed_responses
 
+& $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage embed_cross_responses
+
 & $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage cka
 ```
 
 You can stop between lines and resume days later; see **Resume and overwrite** below.
+
+To add cross-embeds to an **old run** that already finished CKA:
+
+```powershell
+& $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage embed_cross_responses
+& $PY $RC --corpus $CORPUS --out_dir $OUT --models $M1 $M2 --stage cka --overwrite
+```
 
 **Important:** After `init`, every later stage must use CLI flags that **match** `pipeline_config.json` exactly for: `--instruction`, `--word_count_prompt`, `--match_abstract_length`, `--summarize` (with `--summarize_instruction` / `--summarize_words`), `--batch_size`, `--chunk_size`, `--aggregation_level`, `--skip_generate`, `--skip_cka`, `--cka_chunk_rows`, and local-only vs `--allow_remote`. For the **`generate`** stage only, `--max_new_tokens` and `--max_generated_words` must each match the effective saved values (see **Legacy `max_words` in config** under Troubleshooting). If you need to change those, redo **`init`** with `--overwrite` (or a new `--out_dir`).
 
@@ -172,7 +182,7 @@ See [CLI_REFERENCE.md](CLI_REFERENCE.md) for the complete table including `--sta
 |--------|--------|
 | `--corpus` | Required for every invocation (path must stay consistent with config after `init`). |
 | `--out_dir` | Required after `init`; optional on `init` (auto `outputs/categorized_*`). |
-| `--stage` | `all` (default), `init`, `generate`, `embed_excerpts`, `embed_responses`, or `cka`. |
+| `--stage` | `all` (default), `init`, `generate`, `embed_excerpts`, `embed_responses`, `embed_cross_responses`, or `cka`. |
 | `--models` | One or more **local** checkpoint directories; order and paths must match `pipeline_config.json` when resuming. |
 | `--words` | First N words per doc used as excerpt (stored at init). |
 | `--instruction` | Prompt template; see above. |
@@ -232,16 +242,23 @@ The standalone script supports the same filters:
     token_embeddings.npy
     word_embeddings_merged_agnostic.npy
     document_embeddings_merged_agnostic.npy   (if --aggregation_level document|both)
+    by_embedder/<other_model_slug>/           (from embed_cross_responses)
+      token_embeddings.npy
+      word_embeddings_merged_agnostic.npy
+      document_embeddings_merged_agnostic.npy
   summaries/<model_slug>/                     (only with --summarize)
     responses.jsonl
     token_embeddings.npy
     word_embeddings_merged_agnostic.npy
     document_embeddings_merged_agnostic.npy   (if --aggregation_level document|both)
+    by_embedder/<other_model_slug>/           (from embed_cross_responses; same layout)
   cka/
     cka_index.json
-    document_cka_by_category.json   (if --aggregation_level document|both)
+    document_cka_by_category.json   (if --aggregation_level document|both; may include cross_embed)
     leave_k_out_pooled.json         (optional; scripts/cka_leave_k_out.py)
     leave_k_out_pooled.md           (optional; scripts/cka_leave_k_out.py)
+    row_permutation_pooled.json     (optional; scripts/cka_row_permutation.py)
+    row_permutation_pooled.md       (optional; scripts/cka_row_permutation.py)
     excerpt__<a>__vs__<b>.json
     excerpt_document__<a>__vs__<b>.json      (if --aggregation_level document|both)
     excerpt__<a>__vs__<b>__<slice_suffix>.json   (optional, when --cka_filter / --cka_doc_ids used)
@@ -249,6 +266,9 @@ The standalone script supports the same filters:
     response_document__<a>__vs__<b>.json   (document, if generation ran and document response npys exist)
     summary__<a>__vs__<b>.json   (word, only with --summarize)
     summary_document__<a>__vs__<b>.json   (document, only with --summarize)
+    # Cross-embed enrichments (when by_embedder/ artifacts exist), e.g.:
+    # response_document__same_text__<text>__emb_<a>__vs__<b>.json
+    # excerpt_vs_response_document__emb_<e>__text_corpus__vs__<text>.json
 ```
 
 Exact filenames follow `sanitize_model_slug()` (derived from the model directory name). Pairwise JSON records include `n_rows` (after slice), `n_rows_total`, and optional `row_slice` describing filters.
@@ -259,9 +279,11 @@ Exact filenames follow `sanitize_model_slug()` (derived from the model directory
 
 ## Ad-hoc CKA on existing `.npy` files
 
-For manual pairwise checks outside the pipeline directory layout, see `cka_word_embeddings.py` (includes optional `--bootstrap` and `--leave_k_out` / `--drop_k`).
+For manual pairwise checks outside the pipeline directory layout, see `cka_word_embeddings.py` (includes optional `--bootstrap`, `--leave_k_out` / `--drop_k`, and `--row_permutation`).
 
 Optional post-hoc **leave-k-out** stability on a finished run’s focused pooled document pairs: `scripts/cka_leave_k_out.py --out_dir <run>` (defaults: drop 10 rows, 100 reps; writes `cka/leave_k_out_pooled.json` and `.md`).
+
+Optional post-hoc **row-permutation** null (permute Y topic rows, mean/std over reps): `scripts/cka_row_permutation.py --out_dir <run>` (defaults: 100 reps, seed 42; writes `cka/row_permutation_pooled.json` and `.md`).
 
 ## Troubleshooting
 

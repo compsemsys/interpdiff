@@ -12,7 +12,8 @@ Key functions:
 - ``linear_cka_chunked``: memory-aware CKA accumulation across row blocks.
 - ``validate_aligned_meta``: enforce row identity alignment before any comparison.
 - ``run_leave_k_out_cka``: delete-k row stability (drop random rows, recompute CKA).
-- ``main``: CLI entry for quick comparisons, filtering, bootstrap, leave-k-out, and JSON reporting.
+- ``run_row_permutation_cka``: topic-correspondence null (permute Y rows, recompute CKA).
+- ``main``: CLI entry for quick comparisons, filtering, bootstrap, leave-k-out, row permutation, and JSON reporting.
 
 Example:
   python cka_word_embeddings.py \\
@@ -399,6 +400,37 @@ def run_leave_k_out_cka(
     return float(np.mean(scores)), float(np.std(scores)), scores
 
 
+def run_row_permutation_cka(
+    X: np.ndarray,
+    Y: np.ndarray,
+    rng: np.random.Generator,
+    *,
+    n_reps: int = 100,
+) -> tuple[float, float, np.ndarray]:
+    """
+    Topic-correspondence permutation null: randomly permute rows of ``Y``
+    (one representation) while keeping ``X`` fixed, compute linear CKA,
+    repeat ``n_reps`` times.
+
+    Breaks sample alignment without dropping rows. Returns
+    ``(mean, std, scores)`` where ``scores`` has length ``n_reps``.
+    """
+    if X.shape[0] != Y.shape[0]:
+        raise ValueError(f"Same n required: {X.shape[0]} vs {Y.shape[0]}")
+    n = int(X.shape[0])
+    n_reps = int(n_reps)
+    if n_reps < 1:
+        raise ValueError(f"n_reps must be >= 1, got {n_reps}")
+    if n < 2:
+        raise ValueError(f"Need at least 2 rows for CKA, got n={n}")
+
+    scores = np.empty(n_reps, dtype=np.float64)
+    for r in range(n_reps):
+        perm = rng.permutation(n)
+        scores[r] = linear_cka(X, Y[perm])
+    return float(np.mean(scores)), float(np.std(scores)), scores
+
+
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Linear CKA between two aligned word embedding .npy files"
@@ -441,6 +473,13 @@ def main() -> None:
         type=int,
         default=10,
         help="Rows to drop per leave-k-out rep (default 10)",
+    )
+    p.add_argument(
+        "--row_permutation",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Row-permutation null reps: shuffle Y rows each time (0 = off)",
     )
     p.add_argument(
         "--json_out",
@@ -581,6 +620,25 @@ def main() -> None:
         print(
             f"Leave-k-out (drop_k={args.drop_k}, n_reps={args.leave_k_out}): "
             f"mean={mean_l:.6f} std={std_l:.6f} ({lko_s:.2f}s)"
+        )
+
+    if args.row_permutation > 0:
+        t_perm = time.perf_counter()
+        mean_p, std_p, scores_p = run_row_permutation_cka(
+            X, Y, rng, n_reps=args.row_permutation
+        )
+        perm_s = time.perf_counter() - t_perm
+        report["row_permutation"] = {
+            "n_reps": args.row_permutation,
+            "permute": "Y",
+            "mean": mean_p,
+            "std": std_p,
+            "scores": scores_p.tolist(),
+            "seconds": perm_s,
+        }
+        print(
+            f"Row permutation (permute=Y, n_reps={args.row_permutation}): "
+            f"mean={mean_p:.6f} std={std_p:.6f} ({perm_s:.2f}s)"
         )
 
     if args.per_doc:

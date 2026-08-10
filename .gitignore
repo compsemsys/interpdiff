@@ -35,3 +35,6 @@ Thumbs.db
 # Agent related
 cursor.md
 .cursor/
+
+# Certain runs
+outputs/my_run7/

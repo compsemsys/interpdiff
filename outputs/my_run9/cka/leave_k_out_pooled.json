@@ -328,7 +328,9 @@
           0.5948092443746741,
           0.5993020702344753
         ]
-      }
+      },
+      "label_a": "Qwen3.5-0.8B (excerpt)",
+      "label_b": "Qwen3.5-0.8B (response)"
     },
     {
       "model_a": "Qwen3.5-0.8B",
@@ -650,7 +652,9 @@
           0.9173031542321372,
           0.9190343473336905
         ]
-      }
+      },
+      "label_a": "Qwen3.5-0.8B (excerpt)",
+      "label_b": "Qwen3.5-0.8B (summary)"
     },
     {
       "model_a": "Qwen3.5-0.8B",
@@ -972,7 +976,9 @@
           0.6166375491884284,
           0.619028816635147
         ]
-      }
+      },
+      "label_a": "Qwen3.5-0.8B (response)",
+      "label_b": "Qwen3.5-0.8B (summary)"
     },
     {
       "model_a": "gemma-3-1b-it",
@@ -1294,7 +1300,9 @@
           0.4882687802489967,
           0.46145028262401677
         ]
-      }
+      },
+      "label_a": "gemma-3-1b-it (excerpt)",
+      "label_b": "gemma-3-1b-it (response)"
     },
     {
       "model_a": "gemma-3-1b-it",
@@ -1616,7 +1624,9 @@
           0.7599893980997109,
           0.7597746841210582
         ]
-      }
+      },
+      "label_a": "gemma-3-1b-it (excerpt)",
+      "label_b": "gemma-3-1b-it (summary)"
     },
     {
       "model_a": "gemma-3-1b-it",
@@ -1938,7 +1948,9 @@
           0.5609109638759999,
           0.5667664037222622
         ]
-      }
+      },
+      "label_a": "gemma-3-1b-it (response)",
+      "label_b": "gemma-3-1b-it (summary)"
     },
     {
       "model_a": "Qwen3.5-0.8B",
@@ -2260,7 +2272,9 @@
           0.8350040908438552,
           0.823901670764646
         ]
-      }
+      },
+      "label_a": "Qwen3.5-0.8B (excerpt)",
+      "label_b": "gemma-3-1b-it (excerpt)"
     },
     {
       "model_a": "Qwen3.5-0.8B",
@@ -2582,7 +2596,9 @@
           0.6209422059581607,
           0.6220501177173839
         ]
-      }
+      },
+      "label_a": "Qwen3.5-0.8B (response)",
+      "label_b": "gemma-3-1b-it (response)"
     },
     {
       "model_a": "Qwen3.5-0.8B",
@@ -2904,7 +2920,9 @@
           0.7807343481790421,
           0.7877656608717849
         ]
-      }
+      },
+      "label_a": "Qwen3.5-0.8B (summary)",
+      "label_b": "gemma-3-1b-it (summary)"
     }
   ]
 }
